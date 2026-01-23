@@ -1,0 +1,48 @@
+# Cap'n Proto for .NET
+
+A high-performance [Cap'n Proto](https://capnproto.org/) implementation for .NET Standard 2.0 and .NET Core.
+
+## What is Cap'n Proto?
+
+Cap'n Proto is an insanely fast data interchange format and capability-based RPC system. Unlike Protocol Buffers or JSON, Cap'n Proto requires **zero parsing/serialization overhead** - data is accessed directly from the wire format.
+
+## Features
+
+- **Serialization/Deserialization** - Full support for structs, groups, unions, lists, capabilities, data, text, enums, and primitives
+- **Generics** - Complete generic type support
+- **Level 1 RPC** - Promise pipelining, embargos, and automatic tail calls
+- **Security** - Pointer validation, amplification attack protection, stack overflow DoS protection
+- **Domain Classes** - POCO-style classes for convenient struct representation
+
+## Quick Example
+
+```csharp
+using Capnp;
+using Capnp.Rpc;
+
+// Connect to a Cap'n Proto RPC server
+using var client = new TcpRpcClient("localhost", 5000);
+await client.WhenConnected;
+
+// Get the bootstrap capability
+var calculator = client.GetMain<ICalculator>();
+
+// Make RPC calls with promise pipelining
+var result = await calculator.Add(1, 2);
+Console.WriteLine($"1 + 2 = {result}");
+```
+
+## Packages
+
+| Package | Description |
+|---------|-------------|
+| `Capnp.Net.Runtime` | Runtime library for serialization and RPC |
+| `CapnpC.CSharp.MsBuild.Generation` | MSBuild integration for code generation |
+| `capnpc-csharp` | Command-line code generator |
+
+## Next Steps
+
+- [Getting Started](/capnp-dotnet/getting-started/) - Install packages and generate your first schema
+- [Serialization](/capnp-dotnet/serialization/) - Learn the serialization API
+- [RPC](/capnp-dotnet/rpc/) - Build distributed systems with Cap'n Proto RPC
+- [Examples](/capnp-dotnet/examples/) - Real-world usage examples

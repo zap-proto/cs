@@ -1,0 +1,198 @@
+# Getting Started
+
+This guide walks you through installing Cap'n Proto for .NET and generating code from your first schema.
+
+## Prerequisites
+
+- .NET 6.0 or later (recommended) or .NET Standard 2.0 compatible runtime
+- Cap'n Proto compiler (`capnp`) installed on your system
+
+### Installing the Cap'n Proto Compiler
+
+**Windows (Chocolatey):**
+```bash
+choco install capnproto
+```
+
+**macOS (Homebrew):**
+```bash
+brew install capnp
+```
+
+**Linux (apt):**
+```bash
+sudo apt-get install capnproto
+```
+
+## Installation
+
+### NuGet Packages
+
+Install the runtime package in your project:
+
+```bash
+dotnet add package Capnp.Net.Runtime
+```
+
+### MSBuild Integration (Recommended)
+
+For automatic code generation during build, add the MSBuild package:
+
+```bash
+dotnet add package CapnpC.CSharp.MsBuild.Generation
+```
+
+This package automatically generates C# code from `.capnp` files in your project during build.
+
+### Command-Line Generator
+
+Alternatively, install the code generator as a global tool:
+
+```bash
+dotnet tool install capnpc-csharp --global
+```
+
+## Your First Schema
+
+Create a schema file `addressbook.capnp`:
+
+```capnp
+@0xdbb9ad1f14bf0b36;
+
+struct Person {
+  id @0 :UInt32;
+  name @1 :Text;
+  email @2 :Text;
+  phones @3 :List(PhoneNumber);
+
+  struct PhoneNumber {
+    number @0 :Text;
+    type @1 :Type;
+
+    enum Type {
+      mobile @0;
+      home @1;
+      work @2;
+    }
+  }
+}
+
+struct AddressBook {
+  people @0 :List(Person);
+}
+```
+
+## Generating C# Code
+
+### With MSBuild Integration
+
+Simply add the `.capnp` file to your project. The code is generated automatically during build.
+
+Add to your `.csproj`:
+
+```xml
+<ItemGroup>
+  <Capnp Include="addressbook.capnp" />
+</ItemGroup>
+```
+
+### With Command-Line Tool
+
+```bash
+capnp compile -o csharp addressbook.capnp
+```
+
+This generates `addressbook.capnp.cs` containing:
+- Reader structs for zero-copy deserialization
+- Writer structs for building messages
+- Domain classes for convenient object manipulation
+
+## Using Generated Code
+
+### Writing Data
+
+```csharp
+using Capnp;
+
+// Create a message
+var message = MessageBuilder.Create();
+var addressBook = message.BuildRoot<AddressBook.WRITER>();
+
+// Build the data
+var people = addressBook.People;
+people.Init(1);
+
+var person = people[0];
+person.Id = 123;
+person.Name = "Alice";
+person.Email = "alice@example.com";
+
+var phones = person.Phones;
+phones.Init(1);
+phones[0].Number = "555-1234";
+phones[0].Type = Person.PhoneNumber.Type.mobile;
+
+// Serialize to bytes
+byte[] bytes = message.Frame.ToArray();
+```
+
+### Reading Data
+
+```csharp
+using Capnp;
+
+// Deserialize from bytes
+var segments = Framing.ReadSegments(bytes);
+var deserializer = DeserializerState.CreateRoot(segments);
+var addressBook = deserializer.RequireStruct().Read<AddressBook.READER>();
+
+// Access the data (zero-copy)
+foreach (var person in addressBook.People)
+{
+    Console.WriteLine($"Name: {person.Name}");
+    Console.WriteLine($"Email: {person.Email}");
+
+    foreach (var phone in person.Phones)
+    {
+        Console.WriteLine($"  {phone.Type}: {phone.Number}");
+    }
+}
+```
+
+### Using Domain Classes
+
+Domain classes provide a more familiar C# experience:
+
+```csharp
+// Create using domain class
+var person = new Person
+{
+    Id = 123,
+    Name = "Alice",
+    Email = "alice@example.com",
+    Phones = new List<Person.PhoneNumber>
+    {
+        new Person.PhoneNumber
+        {
+            Number = "555-1234",
+            Type = Person.PhoneNumber.Type.mobile
+        }
+    }
+};
+
+// Serialize
+var message = MessageBuilder.Create();
+person.Serialize(message.BuildRoot<Person.WRITER>());
+
+// Deserialize to domain class
+var segments = Framing.ReadSegments(bytes);
+var deserializer = DeserializerState.CreateRoot(segments);
+var reader = deserializer.RequireStruct().Read<Person.READER>();
+var personCopy = new Person(reader);
+```
+
+## Next Steps
+
+- [Serialization](/capnp-dotnet/serialization/) - Deep dive into serialization patterns
+- [RPC](/capnp-dotnet/rpc/) - Learn capability-based RPC
+- [API Reference](/capnp-dotnet/api/) - Complete API documentation

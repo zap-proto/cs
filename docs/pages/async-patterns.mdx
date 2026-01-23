@@ -1,0 +1,420 @@
+# Async Patterns
+
+Cap'n Proto for .NET uses modern C# async/await patterns throughout. This guide covers best practices for asynchronous programming with the library.
+
+## RPC Async Patterns
+
+### Basic Async Calls
+
+All RPC methods return `Task` or `Task<T>`:
+
+```csharp
+// Single async call
+double result = await calculator.Add(10, 20);
+
+// Multiple concurrent calls
+var task1 = calculator.Add(1, 2);
+var task2 = calculator.Subtract(10, 5);
+var task3 = calculator.Multiply(3, 4);
+
+var results = await Task.WhenAll(task1, task2, task3);
+```
+
+### Cancellation Support
+
+Server implementations receive `CancellationToken`:
+
+```csharp
+public class ProcessorImpl : Processor.IServer
+{
+    public async Task<string> Process(
+        byte[] data,
+        CancellationToken cancellationToken)
+    {
+        // Check cancellation periodically
+        for (int i = 0; i < data.Length; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await ProcessChunkAsync(data[i]);
+        }
+
+        return "Done";
+    }
+}
+```
+
+### Connection Lifecycle
+
+```csharp
+using var client = new TcpRpcClient();
+client.Connect("localhost", 5000);
+
+// Wait for connection with timeout
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+try
+{
+    await client.WhenConnected.WaitAsync(cts.Token);
+}
+catch (OperationCanceledException)
+{
+    Console.WriteLine("Connection timeout");
+    return;
+}
+
+var calc = client.GetMain<Calculator.IClient>();
+```
+
+### Promise Pipelining
+
+Pipelining allows calling methods on results before they arrive:
+
+```csharp
+// Schema:
+// interface Factory {
+//   createCalculator @0 () -> (calc :Calculator);
+// }
+
+var factory = client.GetMain<Factory.IClient>();
+
+// These execute in parallel (1 round trip)
+var addTask = factory.CreateCalculator().Add(1, 2);
+var subTask = factory.CreateCalculator().Subtract(10, 5);
+
+var results = await Task.WhenAll(addTask, subTask);
+```
+
+## Streaming Patterns
+
+### Server-Side Streaming
+
+Use callbacks for server-to-client streaming:
+
+```capnp
+interface DataStream {
+  subscribe @0 (handler :DataHandler) -> ();
+}
+
+interface DataHandler {
+  onData @0 (chunk :Data) -> ();
+  onComplete @1 () -> ();
+  onError @2 (message :Text) -> ();
+}
+```
+
+```csharp
+// Client-side handler
+public class DataHandlerImpl : DataHandler.IServer
+{
+    private readonly TaskCompletionSource<bool> _completion = new();
+
+    public Task OnData(byte[] chunk, CancellationToken ct)
+    {
+        Console.WriteLine($"Received {chunk.Length} bytes");
+        return Task.CompletedTask;
+    }
+
+    public Task OnComplete(CancellationToken ct)
+    {
+        _completion.SetResult(true);
+        return Task.CompletedTask;
+    }
+
+    public Task OnError(string message, CancellationToken ct)
+    {
+        _completion.SetException(new Exception(message));
+        return Task.CompletedTask;
+    }
+
+    public Task WaitForCompletion() => _completion.Task;
+}
+
+// Usage
+var handler = new DataHandlerImpl();
+await dataStream.Subscribe(handler);
+await handler.WaitForCompletion();
+```
+
+### Bidirectional Communication
+
+```capnp
+interface Chat {
+  connect @0 (client :ChatClient) -> (session :ChatSession);
+}
+
+interface ChatClient {
+  receive @0 (message :Text) -> ();
+}
+
+interface ChatSession {
+  send @0 (message :Text) -> ();
+  disconnect @1 () -> ();
+}
+```
+
+```csharp
+public class ChatClientImpl : ChatClient.IServer
+{
+    public Task Receive(string message, CancellationToken ct)
+    {
+        Console.WriteLine($"Message: {message}");
+        return Task.CompletedTask;
+    }
+}
+
+// Connect and chat
+var myClient = new ChatClientImpl();
+var session = await chat.Connect(myClient);
+
+await session.Send("Hello!");
+await session.Send("How are you?");
+await session.Disconnect();
+```
+
+## Error Handling
+
+### Async Exception Patterns
+
+```csharp
+try
+{
+    var result = await calculator.Divide(10, 0);
+}
+catch (RpcException ex)
+{
+    // Handle RPC-specific errors
+    Console.WriteLine($"RPC error: {ex.Message}");
+}
+catch (OperationCanceledException)
+{
+    // Handle cancellation
+    Console.WriteLine("Operation cancelled");
+}
+catch (Exception ex)
+{
+    // Handle other errors
+    Console.WriteLine($"Error: {ex.Message}");
+}
+```
+
+### Aggregate Exceptions
+
+```csharp
+var tasks = new[]
+{
+    calculator.Add(1, 2),
+    calculator.Divide(10, 0),  // Will fail
+    calculator.Multiply(3, 4)
+};
+
+try
+{
+    await Task.WhenAll(tasks);
+}
+catch
+{
+    // Check each task
+    foreach (var task in tasks)
+    {
+        if (task.IsFaulted)
+        {
+            Console.WriteLine($"Task failed: {task.Exception?.InnerException?.Message}");
+        }
+        else if (task.IsCompletedSuccessfully)
+        {
+            Console.WriteLine($"Result: {task.Result}");
+        }
+    }
+}
+```
+
+## I/O Patterns
+
+### Async Serialization
+
+```csharp
+// Write message to stream
+var message = MessageBuilder.Create();
+var root = message.BuildRoot<MyStruct.WRITER>();
+root.Field = "value";
+
+await Framing.WriteAsync(stream, message.Frame);
+
+// Read message from stream
+var segments = await Framing.ReadSegmentsAsync(stream);
+var deserializer = DeserializerState.CreateRoot(segments);
+var reader = deserializer.RequireStruct().Read<MyStruct.READER>();
+```
+
+### Buffered Streams
+
+```csharp
+// Use buffered streams for better performance
+using var bufferedStream = new BufferedStream(networkStream, bufferSize: 8192);
+
+await Framing.WriteAsync(bufferedStream, message.Frame);
+await bufferedStream.FlushAsync();
+```
+
+## Parallel Processing
+
+### Parallel RPC Calls
+
+```csharp
+// Process items in parallel with controlled concurrency
+var semaphore = new SemaphoreSlim(maxConcurrency: 10);
+var tasks = items.Select(async item =>
+{
+    await semaphore.WaitAsync();
+    try
+    {
+        return await processor.Process(item);
+    }
+    finally
+    {
+        semaphore.Release();
+    }
+});
+
+var results = await Task.WhenAll(tasks);
+```
+
+### Channel-Based Pipeline
+
+```csharp
+using System.Threading.Channels;
+
+var channel = Channel.CreateBounded<WorkItem>(capacity: 100);
+
+// Producer
+async Task ProduceAsync(ChannelWriter<WorkItem> writer)
+{
+    foreach (var item in GetItems())
+    {
+        await writer.WriteAsync(item);
+    }
+    writer.Complete();
+}
+
+// Consumer (makes RPC calls)
+async Task ConsumeAsync(ChannelReader<WorkItem> reader)
+{
+    await foreach (var item in reader.ReadAllAsync())
+    {
+        await processor.Process(item);
+    }
+}
+
+await Task.WhenAll(
+    ProduceAsync(channel.Writer),
+    ConsumeAsync(channel.Reader)
+);
+```
+
+## Best Practices
+
+### 1. Prefer ValueTask for Hot Paths
+
+When implementing frequently-called server methods:
+
+```csharp
+public class CachedCalculator : Calculator.IServer
+{
+    private readonly ConcurrentDictionary<(double, double), double> _cache = new();
+
+    public Task<double> Add(double a, double b, CancellationToken ct)
+    {
+        // Synchronous path - cache hit
+        if (_cache.TryGetValue((a, b), out var result))
+        {
+            return Task.FromResult(result);
+        }
+
+        // Async path - compute and cache
+        return ComputeAndCacheAsync(a, b);
+    }
+
+    private async Task<double> ComputeAndCacheAsync(double a, double b)
+    {
+        var result = a + b;
+        _cache[(a, b)] = result;
+        return result;
+    }
+}
+```
+
+### 2. Configure Await Appropriately
+
+```csharp
+// In library code - don't capture context
+var result = await calculator.Add(1, 2).ConfigureAwait(false);
+
+// In UI code - capture context
+var result = await calculator.Add(1, 2);
+UpdateUI(result);
+```
+
+### 3. Use Async Disposable
+
+```csharp
+// Create wrapper for async cleanup
+public class RpcConnection : IAsyncDisposable
+{
+    private readonly TcpRpcClient _client;
+
+    public RpcConnection(string host, int port)
+    {
+        _client = new TcpRpcClient(host, port);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        // Graceful shutdown
+        if (_client.State == ConnectionState.Active)
+        {
+            // Allow pending operations to complete
+            await Task.Delay(100);
+        }
+        _client.Dispose();
+    }
+}
+
+await using var conn = new RpcConnection("localhost", 5000);
+```
+
+### 4. Timeout Patterns
+
+```csharp
+// Per-call timeout
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+try
+{
+    var result = await calculator.Add(1, 2).WaitAsync(cts.Token);
+}
+catch (OperationCanceledException)
+{
+    Console.WriteLine("Call timed out");
+}
+```
+
+### 5. Retry with Exponential Backoff
+
+```csharp
+async Task<T> RetryAsync<T>(Func<Task<T>> operation, int maxRetries = 3)
+{
+    for (int i = 0; i < maxRetries; i++)
+    {
+        try
+        {
+            return await operation();
+        }
+        catch (RpcException) when (i < maxRetries - 1)
+        {
+            var delay = TimeSpan.FromMilliseconds(100 * Math.Pow(2, i));
+            await Task.Delay(delay);
+        }
+    }
+    throw new Exception("Max retries exceeded");
+}
+
+var result = await RetryAsync(() => calculator.Add(1, 2));
+```
