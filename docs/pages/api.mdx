@@ -1,0 +1,421 @@
+# API Reference
+
+Complete reference for the Cap'n Proto .NET API.
+
+## Core Types
+
+### MessageBuilder
+
+Entry point for building Cap'n Proto messages.
+
+```csharp
+namespace Capnp
+{
+    public class MessageBuilder
+    {
+        // Create with default segment allocator
+        public static MessageBuilder Create(int defaultSegmentSize = 128);
+
+        // Create with custom allocator
+        public static MessageBuilder Create<T>() where T : ISegmentAllocator, new();
+
+        // Build root struct
+        public TS BuildRoot<TS>() where TS : SerializerState, new();
+
+        // Create object without setting as root
+        public TS CreateObject<TS>() where TS : SerializerState, new();
+
+        // Root object (set once)
+        public SerializerState? Root { get; set; }
+
+        // Get wire representation
+        public WireFrame Frame { get; }
+
+        // Segment allocator
+        public ISegmentAllocator Allocator { get; }
+
+        // Initialize capability table for RPC
+        public void InitCapTable();
+    }
+}
+```
+
+### DeserializerState
+
+State for deserializing Cap'n Proto messages.
+
+```csharp
+namespace Capnp
+{
+    public struct DeserializerState
+    {
+        // Create from segments
+        public static DeserializerState CreateRoot(
+            IReadOnlyList<Memory<ulong>> segments,
+            SecurityOptions? securityOptions = null);
+
+        // Navigate to struct
+        public DeserializerState RequireStruct();
+
+        // Navigate to list
+        public DeserializerState RequireList();
+
+        // Read as specific type
+        public T Read<T>() where T : struct, ICapnpSerializable<T>;
+    }
+}
+```
+
+### WireFrame
+
+Wire representation of a message.
+
+```csharp
+namespace Capnp
+{
+    public readonly struct WireFrame
+    {
+        // Message segments
+        public IReadOnlyList<Memory<ulong>> Segments { get; }
+
+        // Convert to byte array
+        public byte[] ToArray();
+    }
+}
+```
+
+### SecurityOptions
+
+Security settings for deserialization.
+
+```csharp
+namespace Capnp
+{
+    public class SecurityOptions
+    {
+        // Maximum bytes to traverse (default: 64MB)
+        public long TraversalLimit { get; set; }
+
+        // Maximum recursion depth (default: 64)
+        public int RecursionLimit { get; set; }
+    }
+}
+```
+
+## Framing
+
+### Framing Class
+
+Read and write framed messages.
+
+```csharp
+namespace Capnp
+{
+    public static class Framing
+    {
+        // Read from byte array
+        public static IReadOnlyList<Memory<ulong>> ReadSegments(byte[] bytes);
+
+        // Read from stream (sync)
+        public static IReadOnlyList<Memory<ulong>> ReadSegments(Stream stream);
+
+        // Read from stream (async)
+        public static Task<IReadOnlyList<Memory<ulong>>> ReadSegmentsAsync(
+            Stream stream,
+            CancellationToken ct = default);
+
+        // Write to stream (sync)
+        public static void Write(Stream stream, WireFrame frame);
+
+        // Write to stream (async)
+        public static Task WriteAsync(
+            Stream stream,
+            WireFrame frame,
+            CancellationToken ct = default);
+    }
+}
+```
+
+## RPC Types
+
+### TcpRpcClient
+
+TCP-based RPC client.
+
+```csharp
+namespace Capnp.Rpc
+{
+    public class TcpRpcClient : IConnection, IDisposable
+    {
+        // Construct without connecting
+        public TcpRpcClient();
+
+        // Construct and connect
+        public TcpRpcClient(string host, int port);
+
+        // Connect to server
+        public void Connect(string host, int port);
+
+        // Connection task
+        public Task? WhenConnected { get; }
+
+        // Get bootstrap capability
+        public TProxy GetMain<TProxy>() where TProxy : class, IDisposable;
+
+        // Connection state
+        public ConnectionState State { get; }
+
+        // Statistics
+        public long SendCount { get; }
+        public long RecvCount { get; }
+        public int? RemotePort { get; }
+        public int? LocalPort { get; }
+        public bool IsComputing { get; }
+        public bool IsWaitingForData { get; }
+
+        // Attach tracer (before connecting)
+        public void AttachTracer(IFrameTracer tracer);
+
+        // Inject midlayer (before connecting)
+        public void InjectMidlayer(Func<Stream, Stream> createFunc);
+
+        public void Dispose();
+    }
+}
+```
+
+### TcpRpcServer
+
+TCP-based RPC server.
+
+```csharp
+namespace Capnp.Rpc
+{
+    public class TcpRpcServer : ISupportsMidlayers, IDisposable
+    {
+        // Construct without starting
+        public TcpRpcServer();
+
+        // Construct and start
+        public TcpRpcServer(IPAddress localAddr, int port);
+
+        // Start accepting connections
+        public void StartAccepting(IPAddress localAddr, int port);
+
+        // Stop accepting connections
+        public void StopListening();
+
+        // Set bootstrap capability
+        public object Main { set; }
+
+        // Active connections
+        public IConnection[] Connections { get; }
+        public int ConnectionCount { get; }
+
+        // Acceptor thread status
+        public bool IsAlive { get; }
+
+        // Connection events
+        public event Action<object, ConnectionEventArgs>? OnConnectionChanged;
+
+        // Inject midlayer for all connections
+        public void InjectMidlayer(Func<Stream, Stream> createFunc);
+
+        public void Dispose();
+    }
+}
+```
+
+### ConnectionState
+
+```csharp
+namespace Capnp.Rpc
+{
+    public enum ConnectionState
+    {
+        Initializing,
+        Active,
+        Down
+    }
+}
+```
+
+### RpcException
+
+```csharp
+namespace Capnp.Rpc
+{
+    public class RpcException : Exception
+    {
+        public RpcException(string message);
+        public RpcException(string message, Exception innerException);
+    }
+}
+```
+
+### IConnection
+
+```csharp
+namespace Capnp.Rpc
+{
+    public interface IConnection
+    {
+        ConnectionState State { get; }
+        long SendCount { get; }
+        long RecvCount { get; }
+        int? LocalPort { get; }
+        int? RemotePort { get; }
+        bool IsComputing { get; }
+        bool IsWaitingForData { get; }
+
+        void AttachTracer(IFrameTracer tracer);
+        void InjectMidlayer(Func<Stream, Stream> createFunc);
+        void Close();
+    }
+}
+```
+
+### IFrameTracer
+
+```csharp
+namespace Capnp.FrameTracing
+{
+    public interface IFrameTracer
+    {
+        void TraceFrame(WireFrame frame, bool isIncoming);
+    }
+}
+```
+
+## Generated Types
+
+For a schema struct `MyStruct`, the generator produces:
+
+### READER Struct
+
+```csharp
+public readonly struct READER : ICapnpSerializable<READER>
+{
+    // Field accessors (zero-copy)
+    public int IntField { get; }
+    public string TextField { get; }
+    public bool HasTextField { get; }
+    public NestedStruct.READER NestedField { get; }
+    public IReadOnlyList<Item.READER> Items { get; }
+
+    // For unions
+    public WHICH which { get; }
+}
+```
+
+### WRITER Struct
+
+```csharp
+public struct WRITER : ICapnpSerializable<WRITER>
+{
+    // Field setters
+    public int IntField { set; }
+    public string TextField { set; }
+    public NestedStruct.WRITER NestedField { get; }
+    public ListOfStructsSerializer<Item.WRITER> Items { get; }
+}
+```
+
+### Domain Class
+
+```csharp
+public class MyStruct
+{
+    // Properties
+    public int IntField { get; set; }
+    public string TextField { get; set; }
+    public NestedStruct NestedField { get; set; }
+    public IReadOnlyList<Item> Items { get; set; }
+
+    // Constructors
+    public MyStruct();
+    public MyStruct(READER reader);
+
+    // Serialization
+    public void Serialize(WRITER writer);
+}
+```
+
+### Interface Types
+
+For an interface `Calculator`:
+
+```csharp
+// Server interface to implement
+public interface IServer
+{
+    Task<double> Add(double a, double b, CancellationToken ct);
+}
+
+// Client proxy (auto-generated)
+public interface IClient : IDisposable
+{
+    Task<double> Add(double a, double b);
+}
+```
+
+## List Types
+
+### ListOfPrimitivesSerializer
+
+```csharp
+public struct ListOfPrimitivesSerializer<T> where T : struct
+{
+    public void Init(int count);
+    public T this[int index] { get; set; }
+    public int Count { get; }
+}
+```
+
+### ListOfStructsSerializer
+
+```csharp
+public struct ListOfStructsSerializer<T> where T : struct
+{
+    public void Init(int count);
+    public T this[int index] { get; }
+    public int Count { get; }
+}
+```
+
+### ListOfTextSerializer
+
+```csharp
+public struct ListOfTextSerializer
+{
+    public void Init(int count);
+    public string this[int index] { set; }
+    public int Count { get; }
+}
+```
+
+## Attributes
+
+### SkeletonAttribute
+
+Marks a class as implementing a Cap'n Proto interface.
+
+```csharp
+[Skeleton(typeof(Calculator))]
+public class CalculatorImpl : Calculator.IServer
+{
+    // Implementation
+}
+```
+
+### ProxyAttribute
+
+Used internally by generated code to mark proxy types.
+
+```csharp
+[Proxy(typeof(CalculatorSkeleton))]
+public class CalculatorProxy : Proxy, Calculator.IClient
+{
+    // Auto-generated
+}
+```

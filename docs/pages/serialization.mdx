@@ -1,0 +1,263 @@
+# Serialization
+
+Cap'n Proto's serialization is designed for zero-copy access - data is read directly from the wire format without parsing overhead.
+
+## Message Structure
+
+A Cap'n Proto message consists of one or more **segments**. Each segment is a contiguous block of memory containing serialized data.
+
+```csharp
+// Create a message with default segment size
+var message = MessageBuilder.Create();
+
+// Create with custom segment size (in words)
+var message = MessageBuilder.Create(defaultSegmentSize: 256);
+```
+
+## Writing Data
+
+### MessageBuilder
+
+`MessageBuilder` is the entry point for constructing messages:
+
+```csharp
+using Capnp;
+
+var message = MessageBuilder.Create();
+
+// Build root struct
+var root = message.BuildRoot<MyStruct.WRITER>();
+root.Field1 = 42;
+root.Field2 = "Hello";
+
+// Get serialized frame
+WireFrame frame = message.Frame;
+byte[] bytes = frame.ToArray();
+```
+
+### Serializer State (WRITER)
+
+Generated writer types provide methods for setting each field:
+
+```csharp
+// Primitive fields
+writer.IntField = 42;
+writer.BoolField = true;
+writer.FloatField = 3.14f;
+
+// Text and Data
+writer.TextField = "Hello";
+writer.DataField = new byte[] { 1, 2, 3 };
+
+// Nested structs
+var nested = writer.NestedStruct;
+nested.Field = "value";
+
+// Lists
+var list = writer.Items;
+list.Init(3);  // Must initialize with count first
+list[0] = "first";
+list[1] = "second";
+list[2] = "third";
+```
+
+### Unions
+
+```csharp
+// Schema:
+// struct Shape {
+//   union {
+//     circle @0 :Float64;    # radius
+//     rectangle @1 :Rectangle;
+//   }
+// }
+
+var shape = message.BuildRoot<Shape.WRITER>();
+
+// Set union discriminant and value
+shape.Circle = 5.0;
+// OR
+shape.Rectangle.Width = 10;
+shape.Rectangle.Height = 20;
+```
+
+### Groups
+
+Groups are accessed like nested structs but share the parent's data section:
+
+```csharp
+// Schema:
+// struct Person {
+//   name @0 :Text;
+//   address :group {
+//     street @1 :Text;
+//     city @2 :Text;
+//   }
+// }
+
+var person = message.BuildRoot<Person.WRITER>();
+person.Name = "Alice";
+person.Address.Street = "123 Main St";
+person.Address.City = "Springfield";
+```
+
+## Reading Data
+
+### DeserializerState
+
+Deserialize messages using `DeserializerState`:
+
+```csharp
+using Capnp;
+
+// From byte array
+var segments = Framing.ReadSegments(bytes);
+var deserializer = DeserializerState.CreateRoot(segments);
+var reader = deserializer.RequireStruct().Read<MyStruct.READER>();
+
+// From stream
+var frame = Framing.ReadSegments(stream);
+var deserializer = DeserializerState.CreateRoot(frame);
+```
+
+### Reader Types (READER)
+
+Generated reader types provide zero-copy access:
+
+```csharp
+// Primitive fields
+int value = reader.IntField;
+bool flag = reader.BoolField;
+
+// Text (returns string)
+string text = reader.TextField;
+
+// Data (returns ReadOnlySpan<byte> or IReadOnlyList<byte>)
+var data = reader.DataField;
+
+// Nested structs
+var nested = reader.NestedStruct;
+
+// Lists
+foreach (var item in reader.Items)
+{
+    Console.WriteLine(item);
+}
+
+// Check if optional field is set
+if (reader.HasTextField)
+{
+    Console.WriteLine(reader.TextField);
+}
+```
+
+### Union Reading
+
+```csharp
+switch (shape.which)
+{
+    case Shape.WHICH.Circle:
+        double radius = shape.Circle;
+        break;
+    case Shape.WHICH.Rectangle:
+        var rect = shape.Rectangle;
+        Console.WriteLine($"{rect.Width} x {rect.Height}");
+        break;
+}
+```
+
+## Domain Classes
+
+Domain classes provide a more idiomatic C# experience at the cost of serialization overhead:
+
+```csharp
+// Generated domain class (plain C# class)
+public class Person
+{
+    public uint Id { get; set; }
+    public string Name { get; set; }
+    public string Email { get; set; }
+    public IReadOnlyList<PhoneNumber> Phones { get; set; }
+
+    // Construct from reader (deserialize)
+    public Person(READER reader) { ... }
+
+    // Serialize to writer
+    public void Serialize(WRITER writer) { ... }
+}
+
+// Usage
+var person = new Person
+{
+    Id = 1,
+    Name = "Alice",
+    Email = "alice@example.com"
+};
+
+// Serialize
+var message = MessageBuilder.Create();
+person.Serialize(message.BuildRoot<Person.WRITER>());
+
+// Deserialize
+var reader = deserializer.RequireStruct().Read<Person.READER>();
+var copy = new Person(reader);
+```
+
+## Security Options
+
+Cap'n Proto includes protection against malicious messages:
+
+```csharp
+var options = new SecurityOptions
+{
+    TraversalLimit = 64 * 1024 * 1024,  // 64 MB
+    RecursionLimit = 64
+};
+
+var deserializer = DeserializerState.CreateRoot(segments, options);
+```
+
+## Wire Format
+
+### Framing
+
+Messages are framed with a segment count and segment sizes:
+
+```csharp
+// Write to stream
+await Framing.WriteAsync(stream, message.Frame);
+
+// Read from stream
+var frame = await Framing.ReadSegmentsAsync(stream);
+```
+
+### Segment Access
+
+```csharp
+// Access raw segments
+IReadOnlyList<Memory<ulong>> segments = message.Frame.Segments;
+
+// Convert to byte array
+byte[] bytes = message.Frame.ToArray();
+```
+
+## Best Practices
+
+1. **Prefer readers for read-only access** - Zero-copy, minimal allocations
+2. **Use domain classes for convenience** - When performance is less critical
+3. **Initialize lists before use** - Always call `Init(count)` before setting elements
+4. **Set security limits** - Protect against malicious messages in untrusted contexts
+5. **Reuse MessageBuilder** - For high-throughput scenarios, consider pooling
+
+## Performance Tips
+
+```csharp
+// Pre-allocate for known sizes
+var message = MessageBuilder.Create(defaultSegmentSize: expectedSize / 8);
+
+// Avoid repeated string allocations - cache if reusing
+string cached = reader.TextField;
+
+// Use Span<byte> for data fields when available
+ReadOnlySpan<byte> data = reader.DataField.AsSpan();
+```

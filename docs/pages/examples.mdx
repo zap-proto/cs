@@ -1,0 +1,563 @@
+# Examples
+
+Real-world examples demonstrating Cap'n Proto for .NET patterns.
+
+## Simple Key-Value Store
+
+A basic key-value store demonstrating serialization and RPC.
+
+### Schema
+
+```capnp
+@0xb7c0a9e2d1234567;
+
+interface KeyValueStore {
+  get @0 (key :Text) -> (value :Text, found :Bool);
+  set @1 (key :Text, value :Text) -> ();
+  delete @2 (key :Text) -> (deleted :Bool);
+  list @3 () -> (keys :List(Text));
+}
+```
+
+### Server Implementation
+
+```csharp
+using Capnp.Rpc;
+using System.Collections.Concurrent;
+using System.Net;
+
+public class KeyValueStoreImpl : KeyValueStore.IServer
+{
+    private readonly ConcurrentDictionary<string, string> _store = new();
+
+    public Task<(string value, bool found)> Get(string key, CancellationToken ct)
+    {
+        bool found = _store.TryGetValue(key, out var value);
+        return Task.FromResult((value ?? "", found));
+    }
+
+    public Task Set(string key, string value, CancellationToken ct)
+    {
+        _store[key] = value;
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> Delete(string key, CancellationToken ct)
+    {
+        return Task.FromResult(_store.TryRemove(key, out _));
+    }
+
+    public Task<IReadOnlyList<string>> List(CancellationToken ct)
+    {
+        return Task.FromResult<IReadOnlyList<string>>(_store.Keys.ToList());
+    }
+}
+
+// Start server
+class Program
+{
+    static async Task Main()
+    {
+        using var server = new TcpRpcServer(IPAddress.Loopback, 5000);
+        server.Main = new KeyValueStoreImpl();
+
+        Console.WriteLine("KV Store listening on port 5000");
+        await Task.Delay(Timeout.Infinite);
+    }
+}
+```
+
+### Client Usage
+
+```csharp
+using var client = new TcpRpcClient("localhost", 5000);
+await client.WhenConnected;
+
+var store = client.GetMain<KeyValueStore.IClient>();
+
+// Set values
+await store.Set("name", "Alice");
+await store.Set("email", "alice@example.com");
+
+// Get value
+var (value, found) = await store.Get("name");
+if (found)
+{
+    Console.WriteLine($"Name: {value}");
+}
+
+// List all keys
+var keys = await store.List();
+Console.WriteLine($"Keys: {string.Join(", ", keys)}");
+
+// Delete
+bool deleted = await store.Delete("email");
+Console.WriteLine($"Deleted: {deleted}");
+```
+
+## Chat Application
+
+Bidirectional communication with callbacks.
+
+### Schema
+
+```capnp
+@0xc8a1b2c3d4e5f678;
+
+interface ChatServer {
+  connect @0 (username :Text, handler :ChatHandler) -> (session :ChatSession);
+}
+
+interface ChatHandler {
+  onMessage @0 (from :Text, message :Text) -> ();
+  onUserJoined @1 (username :Text) -> ();
+  onUserLeft @2 (username :Text) -> ();
+}
+
+interface ChatSession {
+  send @0 (message :Text) -> ();
+  disconnect @1 () -> ();
+}
+```
+
+### Server Implementation
+
+```csharp
+public class ChatServerImpl : ChatServer.IServer
+{
+    private readonly ConcurrentDictionary<string, ChatHandler.IClient> _clients = new();
+
+    public Task<ChatSession.IClient> Connect(
+        string username,
+        ChatHandler.IClient handler,
+        CancellationToken ct)
+    {
+        _clients[username] = handler;
+
+        // Notify others
+        BroadcastAsync(username, h => h.OnUserJoined(username));
+
+        var session = new ChatSessionImpl(this, username);
+        return Task.FromResult<ChatSession.IClient>(session);
+    }
+
+    public async Task BroadcastMessage(string from, string message)
+    {
+        var tasks = _clients
+            .Where(kv => kv.Key != from)
+            .Select(kv => kv.Value.OnMessage(from, message));
+
+        await Task.WhenAll(tasks);
+    }
+
+    public async Task Disconnect(string username)
+    {
+        if (_clients.TryRemove(username, out var handler))
+        {
+            await BroadcastAsync(username, h => h.OnUserLeft(username));
+            (handler as IDisposable)?.Dispose();
+        }
+    }
+
+    private async Task BroadcastAsync(
+        string except,
+        Func<ChatHandler.IClient, Task> action)
+    {
+        var tasks = _clients
+            .Where(kv => kv.Key != except)
+            .Select(kv => action(kv.Value));
+
+        await Task.WhenAll(tasks);
+    }
+}
+
+public class ChatSessionImpl : ChatSession.IServer
+{
+    private readonly ChatServerImpl _server;
+    private readonly string _username;
+
+    public ChatSessionImpl(ChatServerImpl server, string username)
+    {
+        _server = server;
+        _username = username;
+    }
+
+    public Task Send(string message, CancellationToken ct)
+    {
+        return _server.BroadcastMessage(_username, message);
+    }
+
+    public Task Disconnect(CancellationToken ct)
+    {
+        return _server.Disconnect(_username);
+    }
+}
+```
+
+### Client Implementation
+
+```csharp
+public class ChatClient : ChatHandler.IServer
+{
+    public Task OnMessage(string from, string message, CancellationToken ct)
+    {
+        Console.WriteLine($"[{from}]: {message}");
+        return Task.CompletedTask;
+    }
+
+    public Task OnUserJoined(string username, CancellationToken ct)
+    {
+        Console.WriteLine($"* {username} joined the chat");
+        return Task.CompletedTask;
+    }
+
+    public Task OnUserLeft(string username, CancellationToken ct)
+    {
+        Console.WriteLine($"* {username} left the chat");
+        return Task.CompletedTask;
+    }
+}
+
+// Usage
+class Program
+{
+    static async Task Main()
+    {
+        using var client = new TcpRpcClient("localhost", 5000);
+        await client.WhenConnected;
+
+        var server = client.GetMain<ChatServer.IClient>();
+        var handler = new ChatClient();
+
+        Console.Write("Username: ");
+        var username = Console.ReadLine();
+
+        var session = await server.Connect(username, handler);
+
+        Console.WriteLine("Connected! Type messages or 'quit' to exit.");
+
+        while (true)
+        {
+            var input = Console.ReadLine();
+            if (input == "quit")
+                break;
+
+            await session.Send(input);
+        }
+
+        await session.Disconnect();
+    }
+}
+```
+
+## File Transfer
+
+Large data transfer with progress tracking.
+
+### Schema
+
+```capnp
+@0xd9e8f7a6b5c4d312;
+
+struct FileInfo {
+  name @0 :Text;
+  size @1 :UInt64;
+  checksum @2 :Data;
+}
+
+interface FileTransfer {
+  upload @0 (info :FileInfo, handler :UploadHandler) -> (id :Text);
+  download @1 (id :Text, handler :DownloadHandler) -> ();
+}
+
+interface UploadHandler {
+  onReady @0 (receiver :ChunkReceiver) -> ();
+  onComplete @1 (id :Text) -> ();
+  onError @2 (message :Text) -> ();
+}
+
+interface DownloadHandler {
+  onStart @0 (info :FileInfo) -> ();
+  onChunk @1 (data :Data, offset :UInt64) -> ();
+  onComplete @2 () -> ();
+  onError @3 (message :Text) -> ();
+}
+
+interface ChunkReceiver {
+  receive @0 (data :Data, offset :UInt64) -> ();
+  finish @1 () -> ();
+}
+```
+
+### Upload Client
+
+```csharp
+public class FileUploader
+{
+    private readonly FileTransfer.IClient _service;
+
+    public FileUploader(FileTransfer.IClient service)
+    {
+        _service = service;
+    }
+
+    public async Task<string> UploadFileAsync(
+        string filePath,
+        IProgress<double>? progress = null)
+    {
+        var fileInfo = new FileInfo(filePath);
+        var info = new Capnp.FileInfo
+        {
+            Name = fileInfo.Name,
+            Size = (ulong)fileInfo.Length,
+            Checksum = ComputeChecksum(filePath)
+        };
+
+        var handler = new UploadHandlerImpl(filePath, progress);
+        var id = await _service.Upload(info, handler);
+
+        await handler.WaitForCompletion();
+        return id;
+    }
+
+    private byte[] ComputeChecksum(string path)
+    {
+        using var sha = SHA256.Create();
+        using var stream = File.OpenRead(path);
+        return sha.ComputeHash(stream);
+    }
+}
+
+public class UploadHandlerImpl : UploadHandler.IServer
+{
+    private readonly string _filePath;
+    private readonly IProgress<double>? _progress;
+    private readonly TaskCompletionSource<bool> _completion = new();
+
+    public UploadHandlerImpl(string filePath, IProgress<double>? progress)
+    {
+        _filePath = filePath;
+        _progress = progress;
+    }
+
+    public async Task OnReady(ChunkReceiver.IClient receiver, CancellationToken ct)
+    {
+        const int chunkSize = 64 * 1024;
+        var fileInfo = new FileInfo(_filePath);
+
+        await using var stream = File.OpenRead(_filePath);
+        var buffer = new byte[chunkSize];
+        ulong offset = 0;
+
+        while (true)
+        {
+            int read = await stream.ReadAsync(buffer, ct);
+            if (read == 0)
+                break;
+
+            var chunk = read == chunkSize ? buffer : buffer[..read];
+            await receiver.Receive(chunk, offset);
+
+            offset += (ulong)read;
+            _progress?.Report((double)offset / (double)fileInfo.Length);
+        }
+
+        await receiver.Finish();
+    }
+
+    public Task OnComplete(string id, CancellationToken ct)
+    {
+        _completion.SetResult(true);
+        return Task.CompletedTask;
+    }
+
+    public Task OnError(string message, CancellationToken ct)
+    {
+        _completion.SetException(new Exception(message));
+        return Task.CompletedTask;
+    }
+
+    public Task WaitForCompletion() => _completion.Task;
+}
+```
+
+## Microservice Pattern
+
+Service discovery and load balancing.
+
+### Schema
+
+```capnp
+@0xea1b2c3d4e5f6789;
+
+interface ServiceRegistry {
+  register @0 (name :Text, endpoint :ServiceEndpoint) -> (id :Text);
+  unregister @1 (id :Text) -> ();
+  lookup @2 (name :Text) -> (endpoints :List(ServiceEndpoint));
+  subscribe @3 (name :Text, handler :ServiceWatcher) -> ();
+}
+
+struct ServiceEndpoint {
+  host @0 :Text;
+  port @1 :UInt16;
+  metadata @2 :List(KeyValue);
+
+  struct KeyValue {
+    key @0 :Text;
+    value @1 :Text;
+  }
+}
+
+interface ServiceWatcher {
+  onAdded @0 (endpoint :ServiceEndpoint) -> ();
+  onRemoved @1 (endpoint :ServiceEndpoint) -> ();
+}
+```
+
+### Client with Load Balancing
+
+```csharp
+public class ServiceClient<T> : IDisposable where T : class, IDisposable
+{
+    private readonly ServiceRegistry.IClient _registry;
+    private readonly string _serviceName;
+    private readonly List<(string host, int port, TcpRpcClient client)> _connections = new();
+    private int _roundRobin = 0;
+
+    public ServiceClient(ServiceRegistry.IClient registry, string serviceName)
+    {
+        _registry = registry;
+        _serviceName = serviceName;
+    }
+
+    public async Task InitializeAsync()
+    {
+        var endpoints = await _registry.Lookup(_serviceName);
+
+        foreach (var ep in endpoints)
+        {
+            var client = new TcpRpcClient(ep.Host, ep.Port);
+            await client.WhenConnected;
+            _connections.Add((ep.Host, ep.Port, client));
+        }
+
+        // Watch for changes
+        await _registry.Subscribe(_serviceName, new Watcher(this));
+    }
+
+    public T GetService()
+    {
+        if (_connections.Count == 0)
+            throw new InvalidOperationException("No available services");
+
+        // Round-robin load balancing
+        var index = Interlocked.Increment(ref _roundRobin) % _connections.Count;
+        var conn = _connections[index];
+
+        return conn.client.GetMain<T>();
+    }
+
+    private class Watcher : ServiceWatcher.IServer
+    {
+        private readonly ServiceClient<T> _parent;
+
+        public Watcher(ServiceClient<T> parent) => _parent = parent;
+
+        public async Task OnAdded(ServiceEndpoint endpoint, CancellationToken ct)
+        {
+            var client = new TcpRpcClient(endpoint.Host, endpoint.Port);
+            await client.WhenConnected;
+            _parent._connections.Add((endpoint.Host, endpoint.Port, client));
+        }
+
+        public Task OnRemoved(ServiceEndpoint endpoint, CancellationToken ct)
+        {
+            var conn = _parent._connections
+                .FirstOrDefault(c => c.host == endpoint.Host && c.port == endpoint.Port);
+
+            if (conn.client != null)
+            {
+                _parent._connections.Remove(conn);
+                conn.client.Dispose();
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    public void Dispose()
+    {
+        foreach (var conn in _connections)
+        {
+            conn.client.Dispose();
+        }
+    }
+}
+
+// Usage
+var serviceClient = new ServiceClient<Calculator.IClient>(registry, "calculator");
+await serviceClient.InitializeAsync();
+
+var calc = serviceClient.GetService();
+var result = await calc.Add(1, 2);
+```
+
+## Testing Patterns
+
+### Mocking RPC Interfaces
+
+```csharp
+using Moq;
+
+[Fact]
+public async Task TestCalculator()
+{
+    // Create mock
+    var mock = new Mock<Calculator.IServer>();
+    mock.Setup(c => c.Add(It.IsAny<double>(), It.IsAny<double>(), It.IsAny<CancellationToken>()))
+        .ReturnsAsync((double a, double b, CancellationToken _) => a + b);
+
+    // Use in tests
+    var result = await mock.Object.Add(1, 2, CancellationToken.None);
+    Assert.Equal(3, result);
+}
+```
+
+### Integration Testing
+
+```csharp
+public class IntegrationTests : IAsyncLifetime
+{
+    private TcpRpcServer _server;
+    private TcpRpcClient _client;
+
+    public async Task InitializeAsync()
+    {
+        _server = new TcpRpcServer();
+        _server.Main = new CalculatorImpl();
+        _server.StartAccepting(IPAddress.Loopback, 0);
+
+        var port = _server.Connections.Length > 0
+            ? _server.Connections[0].LocalPort ?? 5000
+            : 5000;
+
+        _client = new TcpRpcClient("localhost", port);
+        await _client.WhenConnected;
+    }
+
+    public Task DisposeAsync()
+    {
+        _client.Dispose();
+        _server.Dispose();
+        return Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task Add_ReturnsCorrectResult()
+    {
+        var calc = _client.GetMain<Calculator.IClient>();
+        var result = await calc.Add(2, 3);
+        Assert.Equal(5, result);
+    }
+}
+```
