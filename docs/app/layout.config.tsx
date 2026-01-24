@@ -2,7 +2,7 @@ import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
 
 export const baseOptions: BaseLayoutProps = {
   nav: {
-    title: "Cap'n Proto .NET",
+    title: "ZAP .NET",
   },
   links: [
     {
@@ -12,7 +12,7 @@ export const baseOptions: BaseLayoutProps = {
     },
     {
       text: 'GitHub',
-      url: 'https://github.com/zap-protocol/capnp-dotnet',
+      url: 'https://github.com/zap-protocol/zap-cs',
     },
     {
       text: 'NuGet',

@@ -3,7 +3,7 @@ title: Framing
 description: API reference for Framing class
 ---
 
-Static methods for reading and writing framed Cap'n Proto messages.
+Static methods for reading and writing framed ZAP messages.
 
 ## Class Definition
 
@@ -175,7 +175,7 @@ await Framing.WriteAsync(stream, message.Frame);
 
 ## Wire Format
 
-Cap'n Proto messages are framed as follows:
+ZAP messages are framed as follows:
 
 1. **Segment count** (4 bytes, little-endian): Number of segments minus 1
 2. **Segment sizes** (4 bytes each): Size of each segment in words

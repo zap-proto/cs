@@ -1,13 +1,13 @@
 ---
 title: Serialization
-description: Zero-copy serialization and deserialization with Cap'n Proto for .NET
+description: Zero-copy serialization and deserialization with ZAP .NET
 ---
 
-Cap'n Proto's serialization is designed for zero-copy access - data is read directly from the wire format without parsing overhead.
+ZAP's serialization is designed for zero-copy access - data is read directly from the wire format without parsing overhead.
 
 ## Message Structure
 
-A Cap'n Proto message consists of one or more **segments**. Each segment is a contiguous block of memory containing serialized data.
+A ZAP message consists of one or more **segments**. Each segment is a contiguous block of memory containing serialized data.
 
 ```csharp
 // Create a message with default segment size
@@ -252,7 +252,7 @@ var copy = new Person(reader);
 
 ## Security Options
 
-Cap'n Proto includes protection against malicious messages:
+ZAP includes protection against malicious messages:
 
 ```csharp
 var options = new SecurityOptions

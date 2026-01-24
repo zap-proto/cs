@@ -1,18 +1,18 @@
 ---
 title: Installation
-description: Install Cap'n Proto for .NET packages and tools
+description: Install ZAP .NET packages and tools
 ---
 
-This guide covers installing the Cap'n Proto runtime, code generator, and compiler.
+This guide covers installing the ZAP runtime, code generator, and compiler.
 
 ## Prerequisites
 
 - .NET 6.0 or later (recommended) or .NET Standard 2.0 compatible runtime
-- Cap'n Proto compiler (`capnp`) for schema compilation
+- ZAP compiler (`capnp`) for schema compilation
 
-### Installing the Cap'n Proto Compiler
+### Installing the ZAP Compiler
 
-The Cap'n Proto compiler is required at build time to compile `.capnp` schema files.
+The ZAP compiler is required at build time to compile `.capnp` schema files.
 
 **Windows (Chocolatey):**
 
@@ -53,7 +53,7 @@ capnp --version
 
 ### Runtime Package
 
-The runtime package is required for all Cap'n Proto operations:
+The runtime package is required for all ZAP operations:
 
 ```bash
 dotnet add package Capnp.Net.Runtime
@@ -161,7 +161,7 @@ If successful, `test.capnp.cs` will be generated in your `obj` directory and com
 
 ### capnp not found
 
-Ensure the Cap'n Proto compiler is installed and on your PATH:
+Ensure the ZAP compiler is installed and on your PATH:
 
 ```bash
 which capnp  # Unix
