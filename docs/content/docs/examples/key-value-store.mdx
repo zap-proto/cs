@@ -1,0 +1,326 @@
+---
+title: Key-Value Store
+description: A simple key-value store demonstrating basic RPC patterns
+---
+
+A basic key-value store demonstrating serialization and RPC.
+
+## Schema
+
+```capnp
+@0xb7c0a9e2d1234567;
+
+interface KeyValueStore {
+  get @0 (key :Text) -> (value :Text, found :Bool);
+  set @1 (key :Text, value :Text) -> ();
+  delete @2 (key :Text) -> (deleted :Bool);
+  list @3 () -> (keys :List(Text));
+}
+```
+
+## Server Implementation
+
+```csharp
+using Capnp.Rpc;
+using System.Collections.Concurrent;
+using System.Net;
+
+public class KeyValueStoreImpl : KeyValueStore.IServer
+{
+    private readonly ConcurrentDictionary<string, string> _store = new();
+
+    public Task<(string value, bool found)> Get(
+        string key,
+        CancellationToken ct)
+    {
+        bool found = _store.TryGetValue(key, out var value);
+        return Task.FromResult((value ?? "", found));
+    }
+
+    public Task Set(string key, string value, CancellationToken ct)
+    {
+        _store[key] = value;
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> Delete(string key, CancellationToken ct)
+    {
+        return Task.FromResult(_store.TryRemove(key, out _));
+    }
+
+    public Task<IReadOnlyList<string>> List(CancellationToken ct)
+    {
+        return Task.FromResult<IReadOnlyList<string>>(
+            _store.Keys.ToList());
+    }
+}
+```
+
+## Server Startup
+
+```csharp
+class Program
+{
+    static async Task Main()
+    {
+        using var server = new TcpRpcServer();
+        server.Main = new KeyValueStoreImpl();
+        server.StartAccepting(IPAddress.Loopback, 5000);
+
+        Console.WriteLine("KV Store listening on port 5000");
+        Console.WriteLine("Press Enter to stop...");
+        Console.ReadLine();
+    }
+}
+```
+
+## Client Usage
+
+```csharp
+using var client = new TcpRpcClient("localhost", 5000);
+await client.WhenConnected;
+
+var store = client.GetMain<KeyValueStore.IClient>();
+
+// Set values
+await store.Set("name", "Alice");
+await store.Set("email", "alice@example.com");
+await store.Set("city", "New York");
+
+Console.WriteLine("Values set.");
+
+// Get value
+var (value, found) = await store.Get("name");
+if (found)
+{
+    Console.WriteLine($"Name: {value}");
+}
+
+// List all keys
+var keys = await store.List();
+Console.WriteLine($"Keys: {string.Join(", ", keys)}");
+
+// Delete
+bool deleted = await store.Delete("city");
+Console.WriteLine($"Deleted 'city': {deleted}");
+
+// Verify deletion
+var (_, stillExists) = await store.Get("city");
+Console.WriteLine($"'city' exists: {stillExists}");
+```
+
+## Output
+
+```
+Values set.
+Name: Alice
+Keys: name, email, city
+Deleted 'city': true
+'city' exists: false
+```
+
+## Complete Project
+
+### kvstore.capnp
+
+```capnp
+@0xb7c0a9e2d1234567;
+
+interface KeyValueStore {
+  get @0 (key :Text) -> (value :Text, found :Bool);
+  set @1 (key :Text, value :Text) -> ();
+  delete @2 (key :Text) -> (deleted :Bool);
+  list @3 () -> (keys :List(Text));
+}
+```
+
+### Server/Program.cs
+
+```csharp
+using Capnp.Rpc;
+using System.Collections.Concurrent;
+using System.Net;
+
+var store = new KeyValueStoreImpl();
+
+using var server = new TcpRpcServer();
+server.Main = store;
+server.StartAccepting(IPAddress.Any, 5000);
+
+Console.WriteLine("Key-Value Store Server");
+Console.WriteLine("Listening on port 5000");
+Console.WriteLine("Press Ctrl+C to stop");
+
+await Task.Delay(Timeout.Infinite);
+
+public class KeyValueStoreImpl : KeyValueStore.IServer
+{
+    private readonly ConcurrentDictionary<string, string> _store = new();
+
+    public Task<(string value, bool found)> Get(
+        string key,
+        CancellationToken ct)
+    {
+        bool found = _store.TryGetValue(key, out var value);
+        Console.WriteLine($"GET {key} -> {(found ? value : "not found")}");
+        return Task.FromResult((value ?? "", found));
+    }
+
+    public Task Set(string key, string value, CancellationToken ct)
+    {
+        _store[key] = value;
+        Console.WriteLine($"SET {key} = {value}");
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> Delete(string key, CancellationToken ct)
+    {
+        bool deleted = _store.TryRemove(key, out _);
+        Console.WriteLine($"DELETE {key} -> {deleted}");
+        return Task.FromResult(deleted);
+    }
+
+    public Task<IReadOnlyList<string>> List(CancellationToken ct)
+    {
+        var keys = _store.Keys.ToList();
+        Console.WriteLine($"LIST -> [{string.Join(", ", keys)}]");
+        return Task.FromResult<IReadOnlyList<string>>(keys);
+    }
+}
+```
+
+### Client/Program.cs
+
+```csharp
+using Capnp.Rpc;
+
+Console.WriteLine("Key-Value Store Client");
+
+using var client = new TcpRpcClient("localhost", 5000);
+await client.WhenConnected;
+Console.WriteLine("Connected to server");
+
+var store = client.GetMain<KeyValueStore.IClient>();
+
+// Interactive mode
+while (true)
+{
+    Console.Write("> ");
+    var input = Console.ReadLine()?.Trim();
+    if (string.IsNullOrEmpty(input)) continue;
+
+    var parts = input.Split(' ', 3);
+    var cmd = parts[0].ToUpper();
+
+    try
+    {
+        switch (cmd)
+        {
+            case "GET" when parts.Length >= 2:
+                var (value, found) = await store.Get(parts[1]);
+                Console.WriteLine(found ? value : "(not found)");
+                break;
+
+            case "SET" when parts.Length >= 3:
+                await store.Set(parts[1], parts[2]);
+                Console.WriteLine("OK");
+                break;
+
+            case "DEL" when parts.Length >= 2:
+                var deleted = await store.Delete(parts[1]);
+                Console.WriteLine(deleted ? "OK" : "(not found)");
+                break;
+
+            case "LIST":
+                var keys = await store.List();
+                Console.WriteLine(string.Join("\n", keys));
+                break;
+
+            case "QUIT":
+            case "EXIT":
+                return;
+
+            default:
+                Console.WriteLine("Commands: GET key, SET key value, DEL key, LIST, QUIT");
+                break;
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+}
+```
+
+## Testing
+
+```csharp
+using Xunit;
+using Capnp.Rpc;
+using System.Net;
+
+public class KeyValueStoreTests : IAsyncLifetime
+{
+    private TcpRpcServer _server;
+    private TcpRpcClient _client;
+    private KeyValueStore.IClient _store;
+
+    public async Task InitializeAsync()
+    {
+        _server = new TcpRpcServer();
+        _server.Main = new KeyValueStoreImpl();
+        _server.StartAccepting(IPAddress.Loopback, 0);
+
+        // Get assigned port
+        var port = 5000; // In real code, get from server
+
+        _client = new TcpRpcClient("localhost", port);
+        await _client.WhenConnected;
+        _store = _client.GetMain<KeyValueStore.IClient>();
+    }
+
+    public Task DisposeAsync()
+    {
+        _client.Dispose();
+        _server.Dispose();
+        return Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task SetAndGet_ReturnsValue()
+    {
+        await _store.Set("test", "value");
+        var (value, found) = await _store.Get("test");
+
+        Assert.True(found);
+        Assert.Equal("value", value);
+    }
+
+    [Fact]
+    public async Task Get_NonExistentKey_ReturnsNotFound()
+    {
+        var (_, found) = await _store.Get("nonexistent");
+        Assert.False(found);
+    }
+
+    [Fact]
+    public async Task Delete_ExistingKey_ReturnsTrue()
+    {
+        await _store.Set("toDelete", "value");
+        var deleted = await _store.Delete("toDelete");
+        Assert.True(deleted);
+    }
+
+    [Fact]
+    public async Task List_ReturnsAllKeys()
+    {
+        await _store.Set("key1", "value1");
+        await _store.Set("key2", "value2");
+
+        var keys = await _store.List();
+
+        Assert.Contains("key1", keys);
+        Assert.Contains("key2", keys);
+    }
+}
+```

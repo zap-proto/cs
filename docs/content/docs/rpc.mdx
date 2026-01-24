@@ -1,4 +1,7 @@
-# RPC (Remote Procedure Call)
+---
+title: RPC (Remote Procedure Call)
+description: Build distributed systems with Cap'n Proto's capability-based RPC
+---
 
 Cap'n Proto RPC is a capability-based system supporting promise pipelining for low-latency distributed computing.
 
@@ -35,14 +38,15 @@ interface AdvancedCalculator extends(Calculator) {
 
 ## Server Implementation
 
-### Implementing a Skeleton
+### Implementing a Server
+
+Implement the generated `IServer` interface:
 
 ```csharp
 using Capnp.Rpc;
 using System.Threading;
 using System.Threading.Tasks;
 
-// Implement the generated skeleton class
 public class CalculatorImpl : Calculator.IServer
 {
     public Task<double> Add(double a, double b, CancellationToken ct)
@@ -69,7 +73,6 @@ public class CalculatorImpl : Calculator.IServer
 
     public Task<AdvancedCalculator.IClient> GetAdvanced(CancellationToken ct)
     {
-        // Return a new capability
         return Task.FromResult<AdvancedCalculator.IClient>(
             new AdvancedCalculatorImpl());
     }
@@ -82,7 +85,6 @@ public class CalculatorImpl : Calculator.IServer
 using Capnp.Rpc;
 using System.Net;
 
-// Create and configure server
 using var server = new TcpRpcServer();
 
 // Set the bootstrap capability
@@ -99,10 +101,11 @@ await Task.Delay(Timeout.Infinite);
 
 ### Server Events
 
+Monitor connections:
+
 ```csharp
 var server = new TcpRpcServer();
 
-// Monitor connections
 server.OnConnectionChanged += (sender, args) =>
 {
     var conn = args.Connection;
@@ -131,6 +134,14 @@ await client.WhenConnected;
 var calculator = client.GetMain<Calculator.IClient>();
 ```
 
+### Deferred Connection
+
+```csharp
+var client = new TcpRpcClient();
+client.Connect("localhost", 5000);
+await client.WhenConnected;
+```
+
 ### Making RPC Calls
 
 ```csharp
@@ -138,7 +149,7 @@ var calculator = client.GetMain<Calculator.IClient>();
 double result = await calculator.Add(10, 20);
 Console.WriteLine($"10 + 20 = {result}");
 
-// Multiple calls
+// Multiple concurrent calls
 var tasks = new[]
 {
     calculator.Add(1, 2),
@@ -147,23 +158,26 @@ var tasks = new[]
 };
 
 var results = await Task.WhenAll(tasks);
+// results = [3, 5, 12]
 ```
 
 ### Promise Pipelining
 
-Make calls on results before they arrive:
+Call methods on results before they arrive:
 
 ```csharp
-// Without pipelining (2 round trips)
+// Without pipelining (2 round trips):
 var advCalc = await calculator.GetAdvanced();
 var sqrt = await advCalc.Sqrt(16);
 
-// With pipelining (1 round trip)
-// The sqrt call is sent before GetAdvanced returns
+// With pipelining (1 round trip):
+// The Sqrt call is sent before GetAdvanced returns
 var sqrt = await calculator.GetAdvanced().Sqrt(16);
 ```
 
 ### Capability Passing
+
+Pass capabilities between client and server:
 
 ```csharp
 // Schema:
@@ -191,12 +205,10 @@ await processor.Process(data, callback);
 
 ## Connection Management
 
-### TcpRpcClient
+### TcpRpcClient Properties
 
 ```csharp
-// Deferred connection
-var client = new TcpRpcClient();
-client.Connect("localhost", 5000);
+var client = new TcpRpcClient("localhost", 5000);
 await client.WhenConnected;
 
 // Connection state
@@ -212,10 +224,11 @@ int? remotePort = client.RemotePort;
 int? localPort = client.LocalPort;
 ```
 
-### TcpRpcServer
+### TcpRpcServer Properties
 
 ```csharp
 var server = new TcpRpcServer();
+server.Main = new CalculatorImpl();
 server.StartAccepting(IPAddress.Any, 5000);
 
 // Active connections
@@ -234,14 +247,16 @@ bool alive = server.IsAlive;
 Insert protocol layers between Cap'n Proto and TCP:
 
 ```csharp
-// Client with compression midlayer
+// Client with compression
 var client = new TcpRpcClient();
-client.InjectMidlayer(stream => new GZipStream(stream, CompressionMode.Compress));
+client.InjectMidlayer(stream =>
+    new GZipStream(stream, CompressionMode.Compress));
 client.Connect("localhost", 5000);
 
-// Server with compression midlayer
+// Server with compression
 var server = new TcpRpcServer();
-server.InjectMidlayer(stream => new GZipStream(stream, CompressionMode.Decompress));
+server.InjectMidlayer(stream =>
+    new GZipStream(stream, CompressionMode.Decompress));
 server.Main = new CalculatorImpl();
 server.StartAccepting(IPAddress.Any, 5000);
 ```
@@ -268,13 +283,15 @@ try
 {
     await client.WhenConnected;
     var calc = client.GetMain<Calculator.IClient>();
-
-    // Calls will throw if connection drops
     var result = await calc.Add(1, 2);
 }
 catch (RpcException ex) when (ex.Message.Contains("disconnect"))
 {
     Console.WriteLine("Connection lost");
+}
+catch (RpcException ex)
+{
+    Console.WriteLine($"RPC error: {ex.Message}");
 }
 ```
 
@@ -283,7 +300,6 @@ catch (RpcException ex) when (ex.Message.Contains("disconnect"))
 Debug RPC communication:
 
 ```csharp
-// Custom tracer
 public class ConsoleTracer : IFrameTracer
 {
     public void TraceFrame(WireFrame frame, bool isIncoming)
@@ -293,7 +309,6 @@ public class ConsoleTracer : IFrameTracer
     }
 }
 
-// Attach to client
 var client = new TcpRpcClient();
 client.AttachTracer(new ConsoleTracer());
 client.Connect("localhost", 5000);
@@ -305,10 +320,11 @@ client.Connect("localhost", 5000);
 2. **Handle disconnections** - Wrap calls in try-catch for RpcException
 3. **Use pipelining** - Reduce latency by pipelining dependent calls
 4. **Limit capability scope** - Return narrowly-scoped capabilities
-5. **Cancel long operations** - Pass CancellationToken to server methods
+5. **Cancel long operations** - Honor CancellationToken in server methods
 
 ## Thread Safety
 
 - `TcpRpcClient` and `TcpRpcServer` are thread-safe
 - Capability proxies can be shared across threads
 - Server method implementations should be thread-safe
+- Multiple concurrent calls to the same capability are supported

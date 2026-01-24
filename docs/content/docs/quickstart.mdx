@@ -1,0 +1,247 @@
+---
+title: Quick Start
+description: Create your first Cap'n Proto schema and use it in .NET
+---
+
+This guide walks through creating a schema, generating code, and using it to serialize and deserialize data.
+
+## Create a Schema
+
+Create `addressbook.capnp`:
+
+```capnp
+@0xdbb9ad1f14bf0b36;
+
+struct Person {
+  id @0 :UInt32;
+  name @1 :Text;
+  email @2 :Text;
+  phones @3 :List(PhoneNumber);
+
+  struct PhoneNumber {
+    number @0 :Text;
+    type @1 :Type;
+
+    enum Type {
+      mobile @0;
+      home @1;
+      work @2;
+    }
+  }
+}
+
+struct AddressBook {
+  people @0 :List(Person);
+}
+```
+
+## Generate C# Code
+
+With MSBuild integration, code generates automatically during build.
+
+With the command-line tool:
+
+```bash
+capnp compile -o csharp addressbook.capnp
+```
+
+This generates `addressbook.capnp.cs` containing:
+
+- `Person.READER` - Zero-copy reader struct
+- `Person.WRITER` - Writer struct for building messages
+- `Person` - Domain class (POCO-style)
+- Same pattern for `PhoneNumber` and `AddressBook`
+
+## Serialize Data
+
+```csharp
+using Capnp;
+
+// Create a message
+var message = MessageBuilder.Create();
+var addressBook = message.BuildRoot<AddressBook.WRITER>();
+
+// Initialize the people list
+var people = addressBook.People;
+people.Init(1);
+
+// Set person data
+var person = people[0];
+person.Id = 123;
+person.Name = "Alice";
+person.Email = "alice@example.com";
+
+// Initialize and set phones
+var phones = person.Phones;
+phones.Init(2);
+
+phones[0].Number = "555-1234";
+phones[0].Type = Person.PhoneNumber.Type.mobile;
+
+phones[1].Number = "555-5678";
+phones[1].Type = Person.PhoneNumber.Type.work;
+
+// Get serialized bytes
+byte[] bytes = message.Frame.ToArray();
+Console.WriteLine($"Serialized {bytes.Length} bytes");
+```
+
+## Deserialize Data
+
+```csharp
+using Capnp;
+
+// Parse the serialized data
+var segments = Framing.ReadSegments(bytes);
+var deserializer = DeserializerState.CreateRoot(segments);
+var addressBook = deserializer.RequireStruct().Read<AddressBook.READER>();
+
+// Access data (zero-copy)
+foreach (var person in addressBook.People)
+{
+    Console.WriteLine($"Person: {person.Name}");
+    Console.WriteLine($"  ID: {person.Id}");
+    Console.WriteLine($"  Email: {person.Email}");
+
+    foreach (var phone in person.Phones)
+    {
+        Console.WriteLine($"  Phone ({phone.Type}): {phone.Number}");
+    }
+}
+```
+
+## Using Domain Classes
+
+Domain classes provide a familiar C# object model:
+
+```csharp
+using Capnp;
+
+// Create using domain class
+var person = new Person
+{
+    Id = 123,
+    Name = "Alice",
+    Email = "alice@example.com",
+    Phones = new List<Person.PhoneNumber>
+    {
+        new Person.PhoneNumber
+        {
+            Number = "555-1234",
+            Type = Person.PhoneNumber.Type.mobile
+        }
+    }
+};
+
+// Serialize
+var message = MessageBuilder.Create();
+person.Serialize(message.BuildRoot<Person.WRITER>());
+byte[] bytes = message.Frame.ToArray();
+
+// Deserialize to domain class
+var segments = Framing.ReadSegments(bytes);
+var deserializer = DeserializerState.CreateRoot(segments);
+var reader = deserializer.RequireStruct().Read<Person.READER>();
+var personCopy = new Person(reader);
+
+Console.WriteLine($"Deserialized: {personCopy.Name}");
+```
+
+## File I/O
+
+Write to and read from files:
+
+```csharp
+// Write to file
+using (var stream = File.Create("addressbook.bin"))
+{
+    Framing.Write(stream, message.Frame);
+}
+
+// Read from file
+using (var stream = File.OpenRead("addressbook.bin"))
+{
+    var segments = Framing.ReadSegments(stream);
+    var deserializer = DeserializerState.CreateRoot(segments);
+    var addressBook = deserializer.RequireStruct().Read<AddressBook.READER>();
+    // Use addressBook...
+}
+```
+
+## Async I/O
+
+For async operations:
+
+```csharp
+// Write async
+await using (var stream = File.Create("addressbook.bin"))
+{
+    await Framing.WriteAsync(stream, message.Frame);
+}
+
+// Read async
+await using (var stream = File.OpenRead("addressbook.bin"))
+{
+    var segments = await Framing.ReadSegmentsAsync(stream);
+    var deserializer = DeserializerState.CreateRoot(segments);
+    var addressBook = deserializer.RequireStruct().Read<AddressBook.READER>();
+}
+```
+
+## Complete Example
+
+```csharp
+using Capnp;
+
+class Program
+{
+    static void Main()
+    {
+        // Build message
+        var message = MessageBuilder.Create();
+        var book = message.BuildRoot<AddressBook.WRITER>();
+
+        book.People.Init(1);
+        var person = book.People[0];
+        person.Id = 1;
+        person.Name = "Alice";
+        person.Email = "alice@example.com";
+        person.Phones.Init(1);
+        person.Phones[0].Number = "555-1234";
+        person.Phones[0].Type = Person.PhoneNumber.Type.mobile;
+
+        // Serialize
+        byte[] data = message.Frame.ToArray();
+        Console.WriteLine($"Serialized: {data.Length} bytes");
+
+        // Deserialize
+        var segments = Framing.ReadSegments(data);
+        var state = DeserializerState.CreateRoot(segments);
+        var reader = state.RequireStruct().Read<AddressBook.READER>();
+
+        // Print
+        foreach (var p in reader.People)
+        {
+            Console.WriteLine($"{p.Name} <{p.Email}>");
+            foreach (var phone in p.Phones)
+            {
+                Console.WriteLine($"  {phone.Type}: {phone.Number}");
+            }
+        }
+    }
+}
+```
+
+Output:
+
+```
+Serialized: 88 bytes
+Alice <alice@example.com>
+  mobile: 555-1234
+```
+
+## Next Steps
+
+- [Serialization](/docs/serialization) - Advanced serialization patterns
+- [RPC](/docs/rpc) - Remote procedure calls
+- [Async Patterns](/docs/async-patterns) - Async/await best practices

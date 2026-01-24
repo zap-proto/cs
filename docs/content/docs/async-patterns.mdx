@@ -1,4 +1,7 @@
-# Async Patterns
+---
+title: Async Patterns
+description: Modern C# async/await patterns for Cap'n Proto .NET
+---
 
 Cap'n Proto for .NET uses modern C# async/await patterns throughout. This guide covers best practices for asynchronous programming with the library.
 
@@ -31,9 +34,9 @@ public class ProcessorImpl : Processor.IServer
         byte[] data,
         CancellationToken cancellationToken)
     {
-        // Check cancellation periodically
         for (int i = 0; i < data.Length; i++)
         {
+            // Check cancellation periodically
             cancellationToken.ThrowIfCancellationRequested();
             await ProcessChunkAsync(data[i]);
         }
@@ -76,7 +79,7 @@ Pipelining allows calling methods on results before they arrive:
 
 var factory = client.GetMain<Factory.IClient>();
 
-// These execute in parallel (1 round trip)
+// These execute in parallel (1 round trip total)
 var addTask = factory.CreateCalculator().Add(1, 2);
 var subTask = factory.CreateCalculator().Subtract(10, 5);
 
@@ -102,7 +105,6 @@ interface DataHandler {
 ```
 
 ```csharp
-// Client-side handler
 public class DataHandlerImpl : DataHandler.IServer
 {
     private readonly TaskCompletionSource<bool> _completion = new();
@@ -217,7 +219,7 @@ catch
     {
         if (task.IsFaulted)
         {
-            Console.WriteLine($"Task failed: {task.Exception?.InnerException?.Message}");
+            Console.WriteLine($"Failed: {task.Exception?.InnerException?.Message}");
         }
         else if (task.IsCompletedSuccessfully)
         {
@@ -260,7 +262,7 @@ await bufferedStream.FlushAsync();
 ### Parallel RPC Calls
 
 ```csharp
-// Process items in parallel with controlled concurrency
+// Process items with controlled concurrency
 var semaphore = new SemaphoreSlim(maxConcurrency: 10);
 var tasks = items.Select(async item =>
 {
@@ -312,9 +314,7 @@ await Task.WhenAll(
 
 ## Best Practices
 
-### 1. Prefer ValueTask for Hot Paths
-
-When implementing frequently-called server methods:
+### 1. Use Task.FromResult for Synchronous Paths
 
 ```csharp
 public class CachedCalculator : Calculator.IServer
@@ -356,7 +356,6 @@ UpdateUI(result);
 ### 3. Use Async Disposable
 
 ```csharp
-// Create wrapper for async cleanup
 public class RpcConnection : IAsyncDisposable
 {
     private readonly TcpRpcClient _client;
@@ -368,11 +367,9 @@ public class RpcConnection : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        // Graceful shutdown
         if (_client.State == ConnectionState.Active)
         {
-            // Allow pending operations to complete
-            await Task.Delay(100);
+            await Task.Delay(100);  // Allow pending ops
         }
         _client.Dispose();
     }
@@ -399,7 +396,9 @@ catch (OperationCanceledException)
 ### 5. Retry with Exponential Backoff
 
 ```csharp
-async Task<T> RetryAsync<T>(Func<Task<T>> operation, int maxRetries = 3)
+async Task<T> RetryAsync<T>(
+    Func<Task<T>> operation,
+    int maxRetries = 3)
 {
     for (int i = 0; i < maxRetries; i++)
     {
@@ -417,4 +416,36 @@ async Task<T> RetryAsync<T>(Func<Task<T>> operation, int maxRetries = 3)
 }
 
 var result = await RetryAsync(() => calculator.Add(1, 2));
+```
+
+### 6. Graceful Shutdown
+
+```csharp
+public class GracefulServer : IAsyncDisposable
+{
+    private readonly TcpRpcServer _server;
+    private readonly CancellationTokenSource _cts = new();
+
+    public void Start(int port)
+    {
+        _server.Main = new ServiceImpl(_cts.Token);
+        _server.StartAccepting(IPAddress.Any, port);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        // Signal shutdown
+        _cts.Cancel();
+
+        // Wait for pending requests
+        await Task.Delay(TimeSpan.FromSeconds(5));
+
+        // Stop accepting
+        _server.StopListening();
+
+        // Dispose
+        _server.Dispose();
+        _cts.Dispose();
+    }
+}
 ```

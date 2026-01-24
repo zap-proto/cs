@@ -1,0 +1,187 @@
+---
+title: Installation
+description: Install Cap'n Proto for .NET packages and tools
+---
+
+This guide covers installing the Cap'n Proto runtime, code generator, and compiler.
+
+## Prerequisites
+
+- .NET 6.0 or later (recommended) or .NET Standard 2.0 compatible runtime
+- Cap'n Proto compiler (`capnp`) for schema compilation
+
+### Installing the Cap'n Proto Compiler
+
+The Cap'n Proto compiler is required at build time to compile `.capnp` schema files.
+
+**Windows (Chocolatey):**
+
+```bash
+choco install capnproto
+```
+
+**macOS (Homebrew):**
+
+```bash
+brew install capnp
+```
+
+**Linux (apt):**
+
+```bash
+sudo apt-get install capnproto
+```
+
+**Linux (from source):**
+
+```bash
+curl -O https://capnproto.org/capnproto-c++-1.0.2.tar.gz
+tar zxf capnproto-c++-1.0.2.tar.gz
+cd capnproto-c++-1.0.2
+./configure
+make -j6 check
+sudo make install
+```
+
+Verify installation:
+
+```bash
+capnp --version
+```
+
+## NuGet Packages
+
+### Runtime Package
+
+The runtime package is required for all Cap'n Proto operations:
+
+```bash
+dotnet add package Capnp.Net.Runtime
+```
+
+Or via Package Manager Console:
+
+```powershell
+Install-Package Capnp.Net.Runtime
+```
+
+### MSBuild Integration (Recommended)
+
+For automatic code generation during build:
+
+```bash
+dotnet add package CapnpC.CSharp.MsBuild.Generation
+```
+
+This package:
+- Automatically detects `.capnp` files in your project
+- Generates C# code during build
+- Supports incremental builds
+
+Add schema files to your `.csproj`:
+
+```xml
+<ItemGroup>
+  <Capnp Include="schemas/*.capnp" />
+</ItemGroup>
+```
+
+### Command-Line Generator
+
+Install the code generator as a global .NET tool:
+
+```bash
+dotnet tool install capnpc-csharp --global
+```
+
+Usage:
+
+```bash
+capnp compile -o csharp schema.capnp
+```
+
+## Project Setup
+
+### Minimal .csproj
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Capnp.Net.Runtime" Version="1.*" />
+    <PackageReference Include="CapnpC.CSharp.MsBuild.Generation" Version="1.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Capnp Include="**/*.capnp" />
+  </ItemGroup>
+</Project>
+```
+
+### Directory Structure
+
+Recommended project structure:
+
+```
+MyProject/
+  MyProject.csproj
+  Program.cs
+  Schemas/
+    addressbook.capnp
+    calculator.capnp
+```
+
+## Verifying Installation
+
+Create a test schema `test.capnp`:
+
+```capnp
+@0xabcdef1234567890;
+
+struct TestMessage {
+  text @0 :Text;
+  number @1 :Int32;
+}
+```
+
+Build your project:
+
+```bash
+dotnet build
+```
+
+If successful, `test.capnp.cs` will be generated in your `obj` directory and compiled into your assembly.
+
+## Troubleshooting
+
+### capnp not found
+
+Ensure the Cap'n Proto compiler is installed and on your PATH:
+
+```bash
+which capnp  # Unix
+where capnp  # Windows
+```
+
+### Schema compilation errors
+
+Check that your schema file has a valid unique ID:
+
+```capnp
+@0x1234567890abcdef;  # Generate with: capnp id
+```
+
+### MSBuild not generating code
+
+Verify the package is installed and schema files are included:
+
+```bash
+dotnet list package
+```
+
+Check that `<Capnp Include="..." />` items exist in your project file.

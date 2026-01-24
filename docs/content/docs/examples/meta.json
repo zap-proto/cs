@@ -1,0 +1,10 @@
+{
+  "title": "Examples",
+  "pages": [
+    "index",
+    "key-value-store",
+    "chat-application",
+    "file-transfer",
+    "microservices"
+  ]
+}

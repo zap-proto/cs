@@ -1,0 +1,12 @@
+{
+  "title": "API Reference",
+  "pages": [
+    "index",
+    "message-builder",
+    "deserializer-state",
+    "framing",
+    "tcp-rpc-client",
+    "tcp-rpc-server",
+    "generated-types"
+  ]
+}

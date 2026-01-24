@@ -1,16 +1,15 @@
-import nextra from 'nextra'
+import { createMDX } from 'fumadocs-mdx/next';
 
-const withNextra = nextra({
-  theme: 'nextra-theme-docs',
-  themeConfig: './theme.config.tsx',
-  defaultShowCopyCode: true,
-})
+const withMDX = createMDX();
 
-export default withNextra({
+/** @type {import('next').NextConfig} */
+const config = {
+  basePath: '/zap-cs',
   output: 'export',
-  basePath: '/capnp-dotnet',
+  reactStrictMode: true,
   images: {
     unoptimized: true,
   },
-  trailingSlash: true,
-})
+};
+
+export default withMDX(config);

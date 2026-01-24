@@ -1,0 +1,412 @@
+---
+title: Generated Types
+description: Reference for types generated from Cap'n Proto schemas
+---
+
+The code generator produces several types for each schema definition.
+
+## Struct Types
+
+For a schema struct like:
+
+```capnp
+struct Person {
+  id @0 :UInt32;
+  name @1 :Text;
+  email @2 :Text;
+  phones @3 :List(PhoneNumber);
+}
+```
+
+The generator creates:
+
+### READER
+
+Zero-copy reader struct for deserialization.
+
+```csharp
+public readonly struct READER : ICapnpSerializable<READER>
+{
+    // Primitive fields
+    public uint Id { get; }
+
+    // Text fields
+    public string Name { get; }
+    public bool HasName { get; }
+
+    // Nested structs
+    public PhoneNumber.READER Phone { get; }
+
+    // Lists
+    public IReadOnlyList<PhoneNumber.READER> Phones { get; }
+}
+```
+
+**Usage:**
+
+```csharp
+var segments = Framing.ReadSegments(bytes);
+var state = DeserializerState.CreateRoot(segments);
+var person = state.RequireStruct().Read<Person.READER>();
+
+Console.WriteLine($"ID: {person.Id}");
+Console.WriteLine($"Name: {person.Name}");
+
+foreach (var phone in person.Phones)
+{
+    Console.WriteLine($"Phone: {phone.Number}");
+}
+```
+
+### WRITER
+
+Writer struct for serialization.
+
+```csharp
+public struct WRITER : ICapnpSerializable<WRITER>
+{
+    // Primitive setters
+    public uint Id { set; }
+
+    // Text setters
+    public string Name { set; }
+
+    // Nested struct accessors (getter returns writer)
+    public PhoneNumber.WRITER Phone { get; }
+
+    // List accessors
+    public ListOfStructsSerializer<PhoneNumber.WRITER> Phones { get; }
+}
+```
+
+**Usage:**
+
+```csharp
+var message = MessageBuilder.Create();
+var person = message.BuildRoot<Person.WRITER>();
+
+person.Id = 123;
+person.Name = "Alice";
+
+var phones = person.Phones;
+phones.Init(2);
+phones[0].Number = "555-1234";
+phones[0].Type = PhoneType.mobile;
+phones[1].Number = "555-5678";
+phones[1].Type = PhoneType.work;
+```
+
+### Domain Class
+
+POCO-style class for convenient manipulation.
+
+```csharp
+public class Person
+{
+    // Properties
+    public uint Id { get; set; }
+    public string? Name { get; set; }
+    public string? Email { get; set; }
+    public IReadOnlyList<PhoneNumber>? Phones { get; set; }
+
+    // Default constructor
+    public Person();
+
+    // Construct from reader
+    public Person(READER reader);
+
+    // Serialize to writer
+    public void Serialize(WRITER writer);
+}
+```
+
+**Usage:**
+
+```csharp
+// Create
+var person = new Person
+{
+    Id = 123,
+    Name = "Alice",
+    Email = "alice@example.com",
+    Phones = new List<PhoneNumber>
+    {
+        new PhoneNumber { Number = "555-1234", Type = PhoneType.mobile }
+    }
+};
+
+// Serialize
+var message = MessageBuilder.Create();
+person.Serialize(message.BuildRoot<Person.WRITER>());
+
+// Deserialize
+var reader = state.RequireStruct().Read<Person.READER>();
+var copy = new Person(reader);
+```
+
+## Union Types
+
+For unions:
+
+```capnp
+struct Shape {
+  union {
+    circle @0 :Float64;
+    rectangle @1 :Rectangle;
+    triangle @2 :Triangle;
+  }
+}
+```
+
+### WHICH Enum
+
+```csharp
+public enum WHICH : ushort
+{
+    Circle = 0,
+    Rectangle = 1,
+    Triangle = 2,
+    undefined = 65535
+}
+```
+
+### Reading Unions
+
+```csharp
+var shape = state.RequireStruct().Read<Shape.READER>();
+
+switch (shape.which)
+{
+    case Shape.WHICH.Circle:
+        double radius = shape.Circle;
+        break;
+    case Shape.WHICH.Rectangle:
+        var rect = shape.Rectangle;
+        break;
+    case Shape.WHICH.Triangle:
+        var tri = shape.Triangle;
+        break;
+    case Shape.WHICH.undefined:
+        // No variant set
+        break;
+}
+```
+
+### Writing Unions
+
+```csharp
+var shape = message.BuildRoot<Shape.WRITER>();
+
+// Setting any variant updates the discriminant
+shape.Circle = 5.0;
+
+// Or
+shape.Rectangle.Width = 10;
+shape.Rectangle.Height = 20;
+```
+
+## Interface Types
+
+For interfaces:
+
+```capnp
+interface Calculator {
+  add @0 (a :Float64, b :Float64) -> (result :Float64);
+  subtract @1 (a :Float64, b :Float64) -> (result :Float64);
+}
+```
+
+### IServer
+
+Interface for server implementations.
+
+```csharp
+public interface IServer
+{
+    Task<double> Add(double a, double b, CancellationToken ct);
+    Task<double> Subtract(double a, double b, CancellationToken ct);
+}
+```
+
+**Implementation:**
+
+```csharp
+public class CalculatorImpl : Calculator.IServer
+{
+    public Task<double> Add(double a, double b, CancellationToken ct)
+    {
+        return Task.FromResult(a + b);
+    }
+
+    public Task<double> Subtract(double a, double b, CancellationToken ct)
+    {
+        return Task.FromResult(a - b);
+    }
+}
+```
+
+### IClient
+
+Client proxy interface (auto-generated).
+
+```csharp
+public interface IClient : IDisposable
+{
+    Task<double> Add(double a, double b);
+    Task<double> Subtract(double a, double b);
+}
+```
+
+**Usage:**
+
+```csharp
+var calc = client.GetMain<Calculator.IClient>();
+double result = await calc.Add(10, 20);
+```
+
+## List Types
+
+### ListOfPrimitivesSerializer
+
+For lists of primitives:
+
+```csharp
+public struct ListOfPrimitivesSerializer<T> where T : struct
+{
+    public void Init(int count);
+    public T this[int index] { get; set; }
+    public int Count { get; }
+}
+```
+
+**Example:**
+
+```csharp
+var numbers = writer.Numbers;  // ListOfPrimitivesSerializer<int>
+numbers.Init(5);
+for (int i = 0; i < 5; i++)
+{
+    numbers[i] = i * 10;
+}
+```
+
+### ListOfStructsSerializer
+
+For lists of structs:
+
+```csharp
+public struct ListOfStructsSerializer<T> where T : struct
+{
+    public void Init(int count);
+    public T this[int index] { get; }
+    public int Count { get; }
+}
+```
+
+**Example:**
+
+```csharp
+var items = writer.Items;  // ListOfStructsSerializer<Item.WRITER>
+items.Init(3);
+items[0].Name = "First";
+items[1].Name = "Second";
+items[2].Name = "Third";
+```
+
+### ListOfTextSerializer
+
+For lists of text:
+
+```csharp
+public struct ListOfTextSerializer
+{
+    public void Init(int count);
+    public string this[int index] { set; }
+    public int Count { get; }
+}
+```
+
+### ListOfDataSerializer
+
+For lists of data:
+
+```csharp
+public struct ListOfDataSerializer
+{
+    public void Init(int count);
+    public byte[] this[int index] { set; }
+    public int Count { get; }
+}
+```
+
+## Enum Types
+
+For enums:
+
+```capnp
+enum PhoneType {
+  mobile @0;
+  home @1;
+  work @2;
+}
+```
+
+Generates:
+
+```csharp
+public enum PhoneType : ushort
+{
+    mobile = 0,
+    home = 1,
+    work = 2
+}
+```
+
+## Generics
+
+For generic types:
+
+```capnp
+struct Pair(First, Second) {
+  first @0 :First;
+  second @1 :Second;
+}
+```
+
+Generic parameters become type parameters:
+
+```csharp
+// Usage with concrete types
+var pair = message.BuildRoot<Pair<Text, Int32>.WRITER>();
+pair.First = "hello";
+pair.Second = 42;
+```
+
+## Attributes
+
+### TypeIdAttribute
+
+Marks types with their Cap'n Proto type ID.
+
+```csharp
+[TypeId(0xabcdef1234567890UL)]
+public class Person { }
+```
+
+### ProxyAttribute
+
+Marks proxy classes (internal use).
+
+```csharp
+[Proxy(typeof(CalculatorSkeleton))]
+public class CalculatorProxy : Proxy, Calculator.IClient { }
+```
+
+### SkeletonAttribute
+
+Marks skeleton classes (internal use).
+
+```csharp
+[Skeleton(typeof(Calculator))]
+public class CalculatorSkeleton : Skeleton<Calculator.IServer> { }
+```

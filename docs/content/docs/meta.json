@@ -1,0 +1,15 @@
+{
+  "title": "Documentation",
+  "pages": [
+    "index",
+    "installation",
+    "quickstart",
+    "serialization",
+    "rpc",
+    "async-patterns",
+    "---API Reference---",
+    "api-reference/...",
+    "---Examples---",
+    "examples/..."
+  ]
+}

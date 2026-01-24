@@ -1,0 +1,396 @@
+---
+title: File Transfer
+description: Large data transfer with progress tracking
+---
+
+File transfer example demonstrating streaming and progress reporting.
+
+## Schema
+
+```capnp
+@0xd9e8f7a6b5c4d312;
+
+struct FileInfo {
+  name @0 :Text;
+  size @1 :UInt64;
+  checksum @2 :Data;
+}
+
+interface FileTransfer {
+  upload @0 (info :FileInfo) -> (receiver :ChunkReceiver);
+  download @1 (filename :Text, handler :DownloadHandler) -> ();
+  list @2 () -> (files :List(FileInfo));
+}
+
+interface ChunkReceiver {
+  receive @0 (data :Data, offset :UInt64) -> ();
+  finish @1 () -> (id :Text);
+  cancel @2 () -> ();
+}
+
+interface DownloadHandler {
+  onStart @0 (info :FileInfo) -> ();
+  onChunk @1 (data :Data, offset :UInt64) -> ();
+  onComplete @2 () -> ();
+  onError @3 (message :Text) -> ();
+}
+```
+
+## Server Implementation
+
+```csharp
+using System.Security.Cryptography;
+
+public class FileTransferImpl : FileTransfer.IServer
+{
+    private readonly string _storageDir;
+    private readonly Dictionary<string, FileMetadata> _files = new();
+
+    public FileTransferImpl(string storageDir)
+    {
+        _storageDir = storageDir;
+        Directory.CreateDirectory(storageDir);
+    }
+
+    public Task<ChunkReceiver.IClient> Upload(
+        FileInfo info,
+        CancellationToken ct)
+    {
+        var id = Guid.NewGuid().ToString("N");
+        var path = Path.Combine(_storageDir, id);
+        var receiver = new ChunkReceiverImpl(path, info, id, this);
+
+        return Task.FromResult<ChunkReceiver.IClient>(receiver);
+    }
+
+    public async Task Download(
+        string filename,
+        DownloadHandler.IClient handler,
+        CancellationToken ct)
+    {
+        if (!_files.TryGetValue(filename, out var meta))
+        {
+            await handler.OnError($"File not found: {filename}");
+            return;
+        }
+
+        var path = Path.Combine(_storageDir, meta.Id);
+
+        try
+        {
+            var info = new FileInfo
+            {
+                Name = meta.Name,
+                Size = meta.Size,
+                Checksum = meta.Checksum
+            };
+
+            await handler.OnStart(info);
+
+            const int chunkSize = 64 * 1024;
+            await using var stream = File.OpenRead(path);
+            var buffer = new byte[chunkSize];
+            ulong offset = 0;
+
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int read = await stream.ReadAsync(buffer, ct);
+                if (read == 0) break;
+
+                var chunk = read == chunkSize ? buffer : buffer[..read];
+                await handler.OnChunk(chunk, offset);
+                offset += (ulong)read;
+            }
+
+            await handler.OnComplete();
+        }
+        catch (Exception ex)
+        {
+            await handler.OnError(ex.Message);
+        }
+    }
+
+    public Task<IReadOnlyList<FileInfo>> List(CancellationToken ct)
+    {
+        var files = _files.Values
+            .Select(m => new FileInfo
+            {
+                Name = m.Name,
+                Size = m.Size,
+                Checksum = m.Checksum
+            })
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<FileInfo>>(files);
+    }
+
+    internal void RegisterFile(string id, FileMetadata meta)
+    {
+        _files[meta.Name] = meta;
+    }
+
+    record FileMetadata(string Id, string Name, ulong Size, byte[] Checksum);
+}
+
+public class ChunkReceiverImpl : ChunkReceiver.IServer
+{
+    private readonly FileStream _stream;
+    private readonly FileInfo _info;
+    private readonly string _id;
+    private readonly FileTransferImpl _server;
+    private ulong _bytesReceived;
+
+    public ChunkReceiverImpl(
+        string path,
+        FileInfo info,
+        string id,
+        FileTransferImpl server)
+    {
+        _stream = File.Create(path);
+        _info = info;
+        _id = id;
+        _server = server;
+    }
+
+    public async Task Receive(byte[] data, ulong offset, CancellationToken ct)
+    {
+        _stream.Position = (long)offset;
+        await _stream.WriteAsync(data, ct);
+        _bytesReceived += (ulong)data.Length;
+
+        var progress = (double)_bytesReceived / _info.Size * 100;
+        Console.WriteLine($"Upload progress: {progress:F1}%");
+    }
+
+    public async Task<string> Finish(CancellationToken ct)
+    {
+        await _stream.FlushAsync(ct);
+        _stream.Close();
+
+        _server.RegisterFile(_id, new(
+            _id,
+            _info.Name,
+            _info.Size,
+            _info.Checksum
+        ));
+
+        Console.WriteLine($"Upload complete: {_info.Name}");
+        return _id;
+    }
+
+    public Task Cancel(CancellationToken ct)
+    {
+        _stream.Close();
+        File.Delete(_stream.Name);
+        return Task.CompletedTask;
+    }
+}
+```
+
+## Client Upload
+
+```csharp
+public class FileUploader
+{
+    private readonly FileTransfer.IClient _service;
+
+    public FileUploader(FileTransfer.IClient service)
+    {
+        _service = service;
+    }
+
+    public async Task<string> UploadAsync(
+        string filePath,
+        IProgress<double>? progress = null,
+        CancellationToken ct = default)
+    {
+        var fileInfo = new System.IO.FileInfo(filePath);
+
+        var info = new FileInfo
+        {
+            Name = fileInfo.Name,
+            Size = (ulong)fileInfo.Length,
+            Checksum = ComputeChecksum(filePath)
+        };
+
+        var receiver = await _service.Upload(info);
+
+        try
+        {
+            const int chunkSize = 64 * 1024;
+            await using var stream = File.OpenRead(filePath);
+            var buffer = new byte[chunkSize];
+            ulong offset = 0;
+
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int read = await stream.ReadAsync(buffer, ct);
+                if (read == 0) break;
+
+                var chunk = read == chunkSize ? buffer : buffer[..read];
+                await receiver.Receive(chunk, offset);
+
+                offset += (ulong)read;
+                progress?.Report((double)offset / fileInfo.Length);
+            }
+
+            return await receiver.Finish();
+        }
+        catch
+        {
+            await receiver.Cancel();
+            throw;
+        }
+    }
+
+    private static byte[] ComputeChecksum(string path)
+    {
+        using var sha = SHA256.Create();
+        using var stream = File.OpenRead(path);
+        return sha.ComputeHash(stream);
+    }
+}
+```
+
+## Client Download
+
+```csharp
+public class FileDownloader
+{
+    private readonly FileTransfer.IClient _service;
+
+    public FileDownloader(FileTransfer.IClient service)
+    {
+        _service = service;
+    }
+
+    public async Task DownloadAsync(
+        string filename,
+        string outputPath,
+        IProgress<double>? progress = null,
+        CancellationToken ct = default)
+    {
+        var handler = new DownloadHandlerImpl(outputPath, progress, ct);
+        await _service.Download(filename, handler);
+        await handler.WaitForCompletion();
+    }
+}
+
+public class DownloadHandlerImpl : DownloadHandler.IServer
+{
+    private readonly string _outputPath;
+    private readonly IProgress<double>? _progress;
+    private readonly CancellationToken _ct;
+    private readonly TaskCompletionSource<bool> _completion = new();
+
+    private FileStream? _stream;
+    private ulong _totalSize;
+    private ulong _bytesReceived;
+
+    public DownloadHandlerImpl(
+        string outputPath,
+        IProgress<double>? progress,
+        CancellationToken ct)
+    {
+        _outputPath = outputPath;
+        _progress = progress;
+        _ct = ct;
+    }
+
+    public Task OnStart(FileInfo info, CancellationToken ct)
+    {
+        _totalSize = info.Size;
+        _stream = File.Create(_outputPath);
+        Console.WriteLine($"Downloading: {info.Name} ({info.Size} bytes)");
+        return Task.CompletedTask;
+    }
+
+    public async Task OnChunk(byte[] data, ulong offset, CancellationToken ct)
+    {
+        if (_stream == null) return;
+
+        _ct.ThrowIfCancellationRequested();
+
+        _stream.Position = (long)offset;
+        await _stream.WriteAsync(data, ct);
+
+        _bytesReceived += (ulong)data.Length;
+        _progress?.Report((double)_bytesReceived / _totalSize);
+    }
+
+    public async Task OnComplete(CancellationToken ct)
+    {
+        if (_stream != null)
+        {
+            await _stream.FlushAsync(ct);
+            _stream.Close();
+        }
+
+        Console.WriteLine("Download complete");
+        _completion.SetResult(true);
+    }
+
+    public Task OnError(string message, CancellationToken ct)
+    {
+        _stream?.Close();
+
+        if (File.Exists(_outputPath))
+            File.Delete(_outputPath);
+
+        _completion.SetException(new Exception(message));
+        return Task.CompletedTask;
+    }
+
+    public Task WaitForCompletion() => _completion.Task;
+}
+```
+
+## Usage Example
+
+```csharp
+using var client = new TcpRpcClient("localhost", 5000);
+await client.WhenConnected;
+
+var service = client.GetMain<FileTransfer.IClient>();
+
+// Upload with progress
+var uploader = new FileUploader(service);
+var progress = new Progress<double>(p =>
+    Console.WriteLine($"Upload: {p:P0}"));
+
+var fileId = await uploader.UploadAsync(
+    "large-file.zip",
+    progress);
+
+Console.WriteLine($"Uploaded with ID: {fileId}");
+
+// List files
+var files = await service.List();
+foreach (var file in files)
+{
+    Console.WriteLine($"  {file.Name} ({file.Size} bytes)");
+}
+
+// Download with progress
+var downloader = new FileDownloader(service);
+var dlProgress = new Progress<double>(p =>
+    Console.WriteLine($"Download: {p:P0}"));
+
+await downloader.DownloadAsync(
+    "large-file.zip",
+    "downloaded-file.zip",
+    dlProgress);
+```
+
+## Features Demonstrated
+
+- **Streaming uploads**: Chunked data transfer with receiver capability
+- **Streaming downloads**: Server pushes chunks to client handler
+- **Progress reporting**: Real-time progress updates
+- **Cancellation**: Proper cleanup on cancel or error
+- **Checksum verification**: SHA256 hash for integrity checking
+- **Resource management**: Proper disposal of file streams
