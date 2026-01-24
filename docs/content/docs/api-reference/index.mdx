@@ -9,25 +9,25 @@ This section provides detailed API documentation for ZAP .NET.
 
 | Type | Namespace | Description |
 |------|-----------|-------------|
-| [MessageBuilder](/docs/api-reference/message-builder) | `Capnp` | Entry point for building messages |
-| [DeserializerState](/docs/api-reference/deserializer-state) | `Capnp` | State for deserializing messages |
-| [WireFrame](/docs/api-reference/message-builder#wireframe) | `Capnp` | Wire representation of a message |
-| [SecurityOptions](/docs/api-reference/deserializer-state#securityoptions) | `Capnp` | Security settings for deserialization |
+| [MessageBuilder](/docs/api-reference/message-builder)  `Zap`  Entry point for building messages |
+| [DeserializerState](/docs/api-reference/deserializer-state)  `Zap`  State for deserializing messages |
+| [WireFrame](/docs/api-reference/message-builder#wireframe)  `Zap`  Wire representation of a message |
+| [SecurityOptions](/docs/api-reference/deserializer-state#securityoptions)  `Zap`  Security settings for deserialization |
 
 ## Framing
 
 | Type | Namespace | Description |
 |------|-----------|-------------|
-| [Framing](/docs/api-reference/framing) | `Capnp` | Read and write framed messages |
+| [Framing](/docs/api-reference/framing)  `Zap`  Read and write framed messages |
 
 ## RPC Types
 
 | Type | Namespace | Description |
 |------|-----------|-------------|
-| [TcpRpcClient](/docs/api-reference/tcp-rpc-client) | `Capnp.Rpc` | TCP-based RPC client |
-| [TcpRpcServer](/docs/api-reference/tcp-rpc-server) | `Capnp.Rpc` | TCP-based RPC server |
-| [ConnectionState](/docs/api-reference/tcp-rpc-client#connectionstate) | `Capnp.Rpc` | Connection state enum |
-| [RpcException](/docs/api-reference/tcp-rpc-client#rpcexception) | `Capnp.Rpc` | RPC error exception |
+| [TcpRpcClient](/docs/api-reference/tcp-rpc-client) | `Zap.Rpc` | TCP-based RPC client |
+| [TcpRpcServer](/docs/api-reference/tcp-rpc-server) | `Zap.Rpc` | TCP-based RPC server |
+| [ConnectionState](/docs/api-reference/tcp-rpc-client#connectionstate) | `Zap.Rpc` | Connection state enum |
+| [RpcException](/docs/api-reference/tcp-rpc-client#rpcexception) | `Zap.Rpc` | RPC error exception |
 
 ## Generated Types
 
@@ -41,12 +41,12 @@ This section provides detailed API documentation for ZAP .NET.
 
 ## Namespace Summary
 
-### Capnp
+### Zap
 
 Core serialization types:
 
 ```csharp
-using Capnp;
+using Zap;
 
 // Message building
 var message = MessageBuilder.Create();
@@ -61,12 +61,12 @@ Framing.Write(stream, message.Frame);
 var segments = Framing.ReadSegments(stream);
 ```
 
-### Capnp.Rpc
+### Zap.Rpc
 
 RPC types:
 
 ```csharp
-using Capnp.Rpc;
+using Zap.Rpc;
 
 // Client
 using var client = new TcpRpcClient("localhost", 5000);
@@ -79,12 +79,12 @@ server.Main = new MyServiceImpl();
 server.StartAccepting(IPAddress.Any, 5000);
 ```
 
-### Capnp.FrameTracing
+### Zap.FrameTracing
 
 Debugging types:
 
 ```csharp
-using Capnp.FrameTracing;
+using Zap.FrameTracing;
 
 public class MyTracer : IFrameTracer
 {

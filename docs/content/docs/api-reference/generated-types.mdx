@@ -25,7 +25,7 @@ The generator creates:
 Zero-copy reader struct for deserialization.
 
 ```csharp
-public readonly struct READER : ICapnpSerializable<READER>
+public readonly struct READER : IZapSerializable<READER>
 {
     // Primitive fields
     public uint Id { get; }
@@ -63,7 +63,7 @@ foreach (var phone in person.Phones)
 Writer struct for serialization.
 
 ```csharp
-public struct WRITER : ICapnpSerializable<WRITER>
+public struct WRITER : IZapSerializable<WRITER>
 {
     // Primitive setters
     public uint Id { set; }

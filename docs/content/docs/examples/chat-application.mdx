@@ -29,7 +29,7 @@ interface ChatSession {
 ## Server Implementation
 
 ```csharp
-using Capnp.Rpc;
+using Zap.Rpc;
 using System.Collections.Concurrent;
 
 public class ChatServerImpl : ChatServer.IServer
@@ -198,7 +198,7 @@ Console.WriteLine("Disconnected.");
 ## Complete Server
 
 ```csharp
-using Capnp.Rpc;
+using Zap.Rpc;
 using System.Collections.Concurrent;
 using System.Net;
 
@@ -231,7 +231,7 @@ await Task.Delay(Timeout.Infinite);
 ## Complete Client
 
 ```csharp
-using Capnp.Rpc;
+using Zap.Rpc;
 
 Console.WriteLine("Chat Client");
 Console.WriteLine("===========");

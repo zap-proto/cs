@@ -8,7 +8,7 @@ TCP-based RPC client for ZAP.
 ## Class Definition
 
 ```csharp
-namespace Capnp.Rpc
+namespace Zap.Rpc
 {
     public class TcpRpcClient : IConnection, IDisposable
     {
@@ -271,7 +271,7 @@ public bool IsWaitingForData { get; }
 ## ConnectionState
 
 ```csharp
-namespace Capnp.Rpc
+namespace Zap.Rpc
 {
     public enum ConnectionState
     {
@@ -285,7 +285,7 @@ namespace Capnp.Rpc
 ## RpcException
 
 ```csharp
-namespace Capnp.Rpc
+namespace Zap.Rpc
 {
     public class RpcException : Exception
     {

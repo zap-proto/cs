@@ -21,7 +21,7 @@ interface KeyValueStore {
 ## Server Implementation
 
 ```csharp
-using Capnp.Rpc;
+using Zap.Rpc;
 using System.Collections.Concurrent;
 using System.Net;
 
@@ -137,7 +137,7 @@ interface KeyValueStore {
 ### Server/Program.cs
 
 ```csharp
-using Capnp.Rpc;
+using Zap.Rpc;
 using System.Collections.Concurrent;
 using System.Net;
 
@@ -192,7 +192,7 @@ public class KeyValueStoreImpl : KeyValueStore.IServer
 ### Client/Program.cs
 
 ```csharp
-using Capnp.Rpc;
+using Zap.Rpc;
 
 Console.WriteLine("Key-Value Store Client");
 
@@ -256,7 +256,7 @@ while (true)
 
 ```csharp
 using Xunit;
-using Capnp.Rpc;
+using Zap.Rpc;
 using System.Net;
 
 public class KeyValueStoreTests : IAsyncLifetime

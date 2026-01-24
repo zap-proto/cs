@@ -8,7 +8,7 @@ This guide covers installing the ZAP runtime, code generator, and compiler.
 ## Prerequisites
 
 - .NET 6.0 or later (recommended) or .NET Standard 2.0 compatible runtime
-- ZAP compiler (`capnp`) for schema compilation
+- ZAP compiler (`zap`) for schema compilation
 
 ### Installing the ZAP Compiler
 
@@ -17,27 +17,27 @@ The ZAP compiler is required at build time to compile `.zap` schema files.
 **Windows (Chocolatey):**
 
 ```bash
-choco install capnproto
+choco install zap
 ```
 
 **macOS (Homebrew):**
 
 ```bash
-brew install capnp
+brew install zap
 ```
 
 **Linux (apt):**
 
 ```bash
-sudo apt-get install capnproto
+sudo apt-get install zap
 ```
 
 **Linux (from source):**
 
 ```bash
-curl -O https://capnproto.org/capnproto-c++-1.0.2.tar.gz
-tar zxf capnproto-c++-1.0.2.tar.gz
-cd capnproto-c++-1.0.2
+curl -O https://zap.dev/zap-cpp-1.0.2.tar.gz
+tar zxf zap-cpp-1.0.2.tar.gz
+cd zap-cpp-1.0.2
 ./configure
 make -j6 check
 sudo make install
@@ -46,7 +46,7 @@ sudo make install
 Verify installation:
 
 ```bash
-capnp --version
+zap --version
 ```
 
 ## NuGet Packages
@@ -56,13 +56,13 @@ capnp --version
 The runtime package is required for all ZAP operations:
 
 ```bash
-dotnet add package Capnp.Net.Runtime
+dotnet add package Zap.Net.Runtime
 ```
 
 Or via Package Manager Console:
 
 ```powershell
-Install-Package Capnp.Net.Runtime
+Install-Package Zap.Net.Runtime
 ```
 
 ### MSBuild Integration (Recommended)
@@ -70,7 +70,7 @@ Install-Package Capnp.Net.Runtime
 For automatic code generation during build:
 
 ```bash
-dotnet add package CapnpC.CSharp.MsBuild.Generation
+dotnet add package ZapC.CSharp.MsBuild.Generation
 ```
 
 This package:
@@ -82,7 +82,7 @@ Add schema files to your `.csproj`:
 
 ```xml
 <ItemGroup>
-  <Capnp Include="schemas/*.zap" />
+  <Zap Include="schemas/*.zap" />
 </ItemGroup>
 ```
 
@@ -91,13 +91,13 @@ Add schema files to your `.csproj`:
 Install the code generator as a global .NET tool:
 
 ```bash
-dotnet tool install capnpc-csharp --global
+dotnet tool install zapc-csharp --global
 ```
 
 Usage:
 
 ```bash
-capnp compile -o csharp schema.zap
+zap compile -o csharp schema.zap
 ```
 
 ## Project Setup
@@ -113,12 +113,12 @@ capnp compile -o csharp schema.zap
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Capnp.Net.Runtime" Version="1.*" />
-    <PackageReference Include="CapnpC.CSharp.MsBuild.Generation" Version="1.*" />
+    <PackageReference Include="Zap.Net.Runtime" Version="1.*" />
+    <PackageReference Include="ZapC.CSharp.MsBuild.Generation" Version="1.*" />
   </ItemGroup>
 
   <ItemGroup>
-    <Capnp Include="**/*.zap" />
+    <Zap Include="**/*.zap" />
   </ItemGroup>
 </Project>
 ```
@@ -159,13 +159,13 @@ If successful, `test.zap.cs` will be generated in your `obj` directory and compi
 
 ## Troubleshooting
 
-### capnp not found
+### zap not found
 
 Ensure the ZAP compiler is installed and on your PATH:
 
 ```bash
-which capnp  # Unix
-where capnp  # Windows
+which zap  # Unix
+where zap  # Windows
 ```
 
 ### Schema compilation errors
@@ -173,7 +173,7 @@ where capnp  # Windows
 Check that your schema file has a valid unique ID:
 
 ```protobuf
-@0x1234567890abcdef;  # Generate with: capnp id
+@0x1234567890abcdef;  # Generate with: zap id
 ```
 
 ### MSBuild not generating code
@@ -184,4 +184,4 @@ Verify the package is installed and schema files are included:
 dotnet list package
 ```
 
-Check that `<Capnp Include="..." />` items exist in your project file.
+Check that `<Zap Include="..." />` items exist in your project file.

@@ -8,7 +8,7 @@ State for deserializing ZAP messages.
 ## Struct Definition
 
 ```csharp
-namespace Capnp
+namespace Zap
 {
     public struct DeserializerState
     {
@@ -22,7 +22,7 @@ namespace Capnp
         public DeserializerState RequireList();
 
         // Reading
-        public T Read<T>() where T : struct, ICapnpSerializable<T>;
+        public T Read<T>() where T : struct, IZapSerializable<T>;
     }
 }
 ```
@@ -106,7 +106,7 @@ public DeserializerState RequireList();
 Reads the current position as a specific type.
 
 ```csharp
-public T Read<T>() where T : struct, ICapnpSerializable<T>;
+public T Read<T>() where T : struct, IZapSerializable<T>;
 ```
 
 **Type Parameters:**
@@ -127,7 +127,7 @@ Console.WriteLine(person.Name);
 Security settings for deserialization.
 
 ```csharp
-namespace Capnp
+namespace Zap
 {
     public class SecurityOptions
     {
@@ -189,7 +189,7 @@ var state = DeserializerState.CreateRoot(segments, strictOptions);
 Exception thrown for deserialization errors.
 
 ```csharp
-namespace Capnp
+namespace Zap
 {
     public class DeserializationException : Exception
     {
