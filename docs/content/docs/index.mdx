@@ -1,13 +1,13 @@
 ---
-title: Cap'n Proto for .NET
-description: High-performance Cap'n Proto implementation for .NET Standard 2.0 and .NET 6+
+title: ZAP .NET
+description: High-performance ZAP implementation for .NET Standard 2.0 and .NET 6+
 ---
 
-A [Cap'n Proto](https://capnproto.org/) implementation for .NET Standard 2.0 and .NET 6+.
+A [ZAP](https://capnproto.org/) implementation for .NET Standard 2.0 and .NET 6+.
 
-## What is Cap'n Proto?
+## What is ZAP?
 
-Cap'n Proto is a data interchange format and capability-based RPC system. Unlike Protocol Buffers or JSON, Cap'n Proto requires **zero parsing/serialization overhead** - data is accessed directly from the wire format.
+ZAP is a data interchange format and capability-based RPC system. Unlike Protocol Buffers or JSON, ZAP requires **zero parsing/serialization overhead** - data is accessed directly from the wire format.
 
 ## Features
 
@@ -23,7 +23,7 @@ Cap'n Proto is a data interchange format and capability-based RPC system. Unlike
 using Capnp;
 using Capnp.Rpc;
 
-// Connect to a Cap'n Proto RPC server
+// Connect to a ZAP RPC server
 using var client = new TcpRpcClient("localhost", 5000);
 await client.WhenConnected;
 
@@ -48,4 +48,4 @@ Console.WriteLine($"1 + 2 = {result}");
 - [Installation](/docs/installation) - Install packages and tools
 - [Quick Start](/docs/quickstart) - Generate your first schema
 - [Serialization](/docs/serialization) - Learn the serialization API
-- [RPC](/docs/rpc) - Build distributed systems with Cap'n Proto RPC
+- [RPC](/docs/rpc) - Build distributed systems with ZAP RPC

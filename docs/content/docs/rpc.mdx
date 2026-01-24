@@ -1,13 +1,13 @@
 ---
 title: RPC (Remote Procedure Call)
-description: Build distributed systems with Cap'n Proto's capability-based RPC
+description: Build distributed systems with ZAP's capability-based RPC
 ---
 
-Cap'n Proto RPC is a capability-based system supporting promise pipelining for low-latency distributed computing.
+ZAP RPC is a capability-based system supporting promise pipelining for low-latency distributed computing.
 
 ## Overview
 
-Cap'n Proto RPC features:
+ZAP RPC features:
 
 - **Capability-Based Security** - Access control through object references
 - **Promise Pipelining** - Call methods on results before they arrive
@@ -244,7 +244,7 @@ bool alive = server.IsAlive;
 
 ## Midlayers
 
-Insert protocol layers between Cap'n Proto and TCP:
+Insert protocol layers between ZAP and TCP:
 
 ```csharp
 // Client with compression
