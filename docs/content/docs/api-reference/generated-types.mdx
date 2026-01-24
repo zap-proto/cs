@@ -9,7 +9,7 @@ The code generator produces several types for each schema definition.
 
 For a schema struct like:
 
-```capnp
+```protobuf
 struct Person {
   id @0 :UInt32;
   name @1 :Text;
@@ -148,7 +148,7 @@ var copy = new Person(reader);
 
 For unions:
 
-```capnp
+```protobuf
 struct Shape {
   union {
     circle @0 :Float64;
@@ -209,7 +209,7 @@ shape.Rectangle.Height = 20;
 
 For interfaces:
 
-```capnp
+```protobuf
 interface Calculator {
   add @0 (a :Float64, b :Float64) -> (result :Float64);
   subtract @1 (a :Float64, b :Float64) -> (result :Float64);
@@ -343,7 +343,7 @@ public struct ListOfDataSerializer
 
 For enums:
 
-```capnp
+```protobuf
 enum PhoneType {
   mobile @0;
   home @1;
@@ -366,7 +366,7 @@ public enum PhoneType : ushort
 
 For generic types:
 
-```capnp
+```protobuf
 struct Pair(First, Second) {
   first @0 :First;
   second @1 :Second;

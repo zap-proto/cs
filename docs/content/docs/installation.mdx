@@ -140,7 +140,7 @@ MyProject/
 
 Create a test schema `test.capnp`:
 
-```capnp
+```protobuf
 @0xabcdef1234567890;
 
 struct TestMessage {
@@ -172,7 +172,7 @@ where capnp  # Windows
 
 Check that your schema file has a valid unique ID:
 
-```capnp
+```protobuf
 @0x1234567890abcdef;  # Generate with: capnp id
 ```
 
