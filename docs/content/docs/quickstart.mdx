@@ -7,7 +7,7 @@ This guide walks through creating a schema, generating code, and using it to ser
 
 ## Create a Schema
 
-Create `addressbook.capnp`:
+Create `addressbook.zap`:
 
 ```protobuf
 @0xdbb9ad1f14bf0b36;
@@ -42,10 +42,10 @@ With MSBuild integration, code generates automatically during build.
 With the command-line tool:
 
 ```bash
-capnp compile -o csharp addressbook.capnp
+capnp compile -o csharp addressbook.zap
 ```
 
-This generates `addressbook.capnp.cs` containing:
+This generates `addressbook.zap.cs` containing:
 
 - `Person.READER` - Zero-copy reader struct
 - `Person.WRITER` - Writer struct for building messages
