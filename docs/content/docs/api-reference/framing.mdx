@@ -1,0 +1,267 @@
+---
+title: Framing
+description: API reference for Framing class
+---
+
+Static methods for reading and writing framed Cap'n Proto messages.
+
+## Class Definition
+
+```csharp
+namespace Capnp
+{
+    public static class Framing
+    {
+        // Read from byte array
+        public static IReadOnlyList<Memory<ulong>> ReadSegments(byte[] bytes);
+
+        // Read from stream (sync)
+        public static IReadOnlyList<Memory<ulong>> ReadSegments(Stream stream);
+
+        // Read from stream (async)
+        public static Task<IReadOnlyList<Memory<ulong>>> ReadSegmentsAsync(
+            Stream stream,
+            CancellationToken ct = default);
+
+        // Write to stream (sync)
+        public static void Write(Stream stream, WireFrame frame);
+
+        // Write to stream (async)
+        public static Task WriteAsync(
+            Stream stream,
+            WireFrame frame,
+            CancellationToken ct = default);
+    }
+}
+```
+
+## Methods
+
+### ReadSegments (byte array)
+
+Reads message segments from a byte array.
+
+```csharp
+public static IReadOnlyList<Memory<ulong>> ReadSegments(byte[] bytes);
+```
+
+**Parameters:**
+- `bytes` - Framed message bytes.
+
+**Returns:** List of message segments.
+
+**Throws:** `EndOfStreamException` if data is incomplete.
+
+**Example:**
+
+```csharp
+byte[] data = GetMessageBytes();
+var segments = Framing.ReadSegments(data);
+var state = DeserializerState.CreateRoot(segments);
+```
+
+### ReadSegments (stream)
+
+Reads message segments from a stream synchronously.
+
+```csharp
+public static IReadOnlyList<Memory<ulong>> ReadSegments(Stream stream);
+```
+
+**Parameters:**
+- `stream` - Readable stream.
+
+**Returns:** List of message segments.
+
+**Throws:** `EndOfStreamException` if stream ends prematurely.
+
+**Example:**
+
+```csharp
+using var stream = File.OpenRead("message.bin");
+var segments = Framing.ReadSegments(stream);
+```
+
+### ReadSegmentsAsync
+
+Reads message segments from a stream asynchronously.
+
+```csharp
+public static Task<IReadOnlyList<Memory<ulong>>> ReadSegmentsAsync(
+    Stream stream,
+    CancellationToken ct = default);
+```
+
+**Parameters:**
+- `stream` - Readable stream.
+- `ct` - Cancellation token.
+
+**Returns:** Task containing list of message segments.
+
+**Throws:**
+- `EndOfStreamException` - If stream ends prematurely.
+- `OperationCanceledException` - If cancelled.
+
+**Example:**
+
+```csharp
+await using var stream = File.OpenRead("message.bin");
+var segments = await Framing.ReadSegmentsAsync(stream);
+```
+
+With cancellation:
+
+```csharp
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+try
+{
+    var segments = await Framing.ReadSegmentsAsync(stream, cts.Token);
+}
+catch (OperationCanceledException)
+{
+    Console.WriteLine("Read timed out");
+}
+```
+
+### Write
+
+Writes a framed message to a stream synchronously.
+
+```csharp
+public static void Write(Stream stream, WireFrame frame);
+```
+
+**Parameters:**
+- `stream` - Writable stream.
+- `frame` - Message frame from `MessageBuilder.Frame`.
+
+**Example:**
+
+```csharp
+var message = MessageBuilder.Create();
+message.BuildRoot<Person.WRITER>().Name = "Alice";
+
+using var stream = File.Create("message.bin");
+Framing.Write(stream, message.Frame);
+```
+
+### WriteAsync
+
+Writes a framed message to a stream asynchronously.
+
+```csharp
+public static Task WriteAsync(
+    Stream stream,
+    WireFrame frame,
+    CancellationToken ct = default);
+```
+
+**Parameters:**
+- `stream` - Writable stream.
+- `frame` - Message frame.
+- `ct` - Cancellation token.
+
+**Returns:** Task that completes when write finishes.
+
+**Example:**
+
+```csharp
+var message = MessageBuilder.Create();
+message.BuildRoot<Person.WRITER>().Name = "Alice";
+
+await using var stream = File.Create("message.bin");
+await Framing.WriteAsync(stream, message.Frame);
+```
+
+## Wire Format
+
+Cap'n Proto messages are framed as follows:
+
+1. **Segment count** (4 bytes, little-endian): Number of segments minus 1
+2. **Segment sizes** (4 bytes each): Size of each segment in words
+3. **Padding**: Zero-pad to 8-byte boundary if odd number of segments
+4. **Segment data**: Concatenated segment contents
+
+Example for a 2-segment message:
+
+```
++----------------+----------------+----------------+
+| seg_count (1)  | seg0_size      | seg1_size      |
++----------------+----------------+----------------+
+| padding (0)    | segment 0 data ...              |
++----------------+---------------------------------+
+| segment 1 data ...                               |
++--------------------------------------------------+
+```
+
+## Usage Examples
+
+### File I/O
+
+```csharp
+// Write
+var message = MessageBuilder.Create();
+var person = message.BuildRoot<Person.WRITER>();
+person.Name = "Alice";
+person.Age = 30;
+
+using (var stream = File.Create("person.bin"))
+{
+    Framing.Write(stream, message.Frame);
+}
+
+// Read
+using (var stream = File.OpenRead("person.bin"))
+{
+    var segments = Framing.ReadSegments(stream);
+    var state = DeserializerState.CreateRoot(segments);
+    var reader = state.RequireStruct().Read<Person.READER>();
+    Console.WriteLine($"Name: {reader.Name}");
+}
+```
+
+### Network I/O
+
+```csharp
+async Task SendMessageAsync(NetworkStream stream, MessageBuilder message)
+{
+    await Framing.WriteAsync(stream, message.Frame);
+}
+
+async Task<Person.READER> ReceivePersonAsync(NetworkStream stream)
+{
+    var segments = await Framing.ReadSegmentsAsync(stream);
+    var state = DeserializerState.CreateRoot(segments);
+    return state.RequireStruct().Read<Person.READER>();
+}
+```
+
+### Byte Array Conversion
+
+```csharp
+// Serialize to bytes
+var message = MessageBuilder.Create();
+message.BuildRoot<Data.WRITER>().Value = 42;
+byte[] bytes = message.Frame.ToArray();
+
+// Deserialize from bytes
+var segments = Framing.ReadSegments(bytes);
+var state = DeserializerState.CreateRoot(segments);
+var data = state.RequireStruct().Read<Data.READER>();
+```
+
+### Memory Stream
+
+```csharp
+// Round-trip through memory
+using var memoryStream = new MemoryStream();
+
+// Write
+var message = MessageBuilder.Create();
+message.BuildRoot<Test.WRITER>().Field = "value";
+Framing.Write(memoryStream, message.Frame);
+
+// Reset and read
+memoryStream.Position = 0;
+var segments = Framing.ReadSegments(memoryStream);
+```

@@ -1,0 +1,347 @@
+---
+title: Chat Application
+description: Bidirectional communication with callbacks
+---
+
+A chat application demonstrating bidirectional RPC communication.
+
+## Schema
+
+```capnp
+@0xc8a1b2c3d4e5f678;
+
+interface ChatServer {
+  connect @0 (username :Text, handler :ChatHandler) -> (session :ChatSession);
+}
+
+interface ChatHandler {
+  onMessage @0 (from :Text, message :Text) -> ();
+  onUserJoined @1 (username :Text) -> ();
+  onUserLeft @2 (username :Text) -> ();
+}
+
+interface ChatSession {
+  send @0 (message :Text) -> ();
+  disconnect @1 () -> ();
+}
+```
+
+## Server Implementation
+
+```csharp
+using Capnp.Rpc;
+using System.Collections.Concurrent;
+
+public class ChatServerImpl : ChatServer.IServer
+{
+    private readonly ConcurrentDictionary<string, ChatHandler.IClient> _clients = new();
+
+    public Task<ChatSession.IClient> Connect(
+        string username,
+        ChatHandler.IClient handler,
+        CancellationToken ct)
+    {
+        _clients[username] = handler;
+        Console.WriteLine($"[Server] {username} connected");
+
+        // Notify others
+        _ = BroadcastAsync(username, h => h.OnUserJoined(username));
+
+        var session = new ChatSessionImpl(this, username);
+        return Task.FromResult<ChatSession.IClient>(session);
+    }
+
+    public async Task BroadcastMessage(string from, string message)
+    {
+        Console.WriteLine($"[Server] {from}: {message}");
+
+        var tasks = _clients
+            .Where(kv => kv.Key != from)
+            .Select(kv => SafeCall(() => kv.Value.OnMessage(from, message)));
+
+        await Task.WhenAll(tasks);
+    }
+
+    public async Task Disconnect(string username)
+    {
+        if (_clients.TryRemove(username, out _))
+        {
+            Console.WriteLine($"[Server] {username} disconnected");
+            await BroadcastAsync(username, h => h.OnUserLeft(username));
+        }
+    }
+
+    private async Task BroadcastAsync(
+        string except,
+        Func<ChatHandler.IClient, Task> action)
+    {
+        var tasks = _clients
+            .Where(kv => kv.Key != except)
+            .Select(kv => SafeCall(() => action(kv.Value)));
+
+        await Task.WhenAll(tasks);
+    }
+
+    private async Task SafeCall(Func<Task> action)
+    {
+        try
+        {
+            await action();
+        }
+        catch (RpcException)
+        {
+            // Client disconnected
+        }
+    }
+}
+
+public class ChatSessionImpl : ChatSession.IServer
+{
+    private readonly ChatServerImpl _server;
+    private readonly string _username;
+
+    public ChatSessionImpl(ChatServerImpl server, string username)
+    {
+        _server = server;
+        _username = username;
+    }
+
+    public Task Send(string message, CancellationToken ct)
+    {
+        return _server.BroadcastMessage(_username, message);
+    }
+
+    public Task Disconnect(CancellationToken ct)
+    {
+        return _server.Disconnect(_username);
+    }
+}
+```
+
+## Client Implementation
+
+```csharp
+public class ChatClient : ChatHandler.IServer
+{
+    private readonly string _username;
+
+    public ChatClient(string username)
+    {
+        _username = username;
+    }
+
+    public Task OnMessage(string from, string message, CancellationToken ct)
+    {
+        Console.WriteLine($"[{from}] {message}");
+        return Task.CompletedTask;
+    }
+
+    public Task OnUserJoined(string username, CancellationToken ct)
+    {
+        Console.WriteLine($"*** {username} joined the chat ***");
+        return Task.CompletedTask;
+    }
+
+    public Task OnUserLeft(string username, CancellationToken ct)
+    {
+        Console.WriteLine($"*** {username} left the chat ***");
+        return Task.CompletedTask;
+    }
+}
+```
+
+## Server Startup
+
+```csharp
+using var server = new TcpRpcServer();
+server.Main = new ChatServerImpl();
+server.StartAccepting(IPAddress.Any, 5000);
+
+Console.WriteLine("Chat server running on port 5000");
+await Task.Delay(Timeout.Infinite);
+```
+
+## Client Usage
+
+```csharp
+using var client = new TcpRpcClient("localhost", 5000);
+await client.WhenConnected;
+
+var chatServer = client.GetMain<ChatServer.IClient>();
+
+Console.Write("Enter username: ");
+var username = Console.ReadLine() ?? "Anonymous";
+
+var handler = new ChatClient(username);
+var session = await chatServer.Connect(username, handler);
+
+Console.WriteLine("Connected! Type messages or 'quit' to exit.");
+Console.WriteLine("----------------------------------------");
+
+while (true)
+{
+    var input = Console.ReadLine();
+
+    if (string.IsNullOrEmpty(input))
+        continue;
+
+    if (input.Equals("quit", StringComparison.OrdinalIgnoreCase))
+        break;
+
+    await session.Send(input);
+}
+
+await session.Disconnect();
+Console.WriteLine("Disconnected.");
+```
+
+## Complete Server
+
+```csharp
+using Capnp.Rpc;
+using System.Collections.Concurrent;
+using System.Net;
+
+Console.WriteLine("Chat Server");
+Console.WriteLine("===========");
+
+var chatServer = new ChatServerImpl();
+
+using var server = new TcpRpcServer();
+server.Main = chatServer;
+
+server.OnConnectionChanged += (_, args) =>
+{
+    if (args.Connection.State == ConnectionState.Down)
+    {
+        Console.WriteLine("[Server] A client connection dropped");
+    }
+};
+
+server.StartAccepting(IPAddress.Any, 5000);
+
+Console.WriteLine("Listening on port 5000");
+Console.WriteLine("Press Ctrl+C to stop");
+
+await Task.Delay(Timeout.Infinite);
+
+// ChatServerImpl and ChatSessionImpl classes here...
+```
+
+## Complete Client
+
+```csharp
+using Capnp.Rpc;
+
+Console.WriteLine("Chat Client");
+Console.WriteLine("===========");
+
+try
+{
+    using var client = new TcpRpcClient("localhost", 5000);
+
+    Console.WriteLine("Connecting to server...");
+    await client.WhenConnected;
+
+    var chatServer = client.GetMain<ChatServer.IClient>();
+
+    Console.Write("Enter your username: ");
+    var username = Console.ReadLine()?.Trim();
+
+    if (string.IsNullOrEmpty(username))
+    {
+        Console.WriteLine("Username cannot be empty");
+        return;
+    }
+
+    var handler = new ChatClient(username);
+    var session = await chatServer.Connect(username, handler);
+
+    Console.WriteLine();
+    Console.WriteLine("Connected! Commands:");
+    Console.WriteLine("  Type a message and press Enter to send");
+    Console.WriteLine("  Type 'quit' to exit");
+    Console.WriteLine();
+
+    // Message input loop
+    while (client.State == ConnectionState.Active)
+    {
+        var input = Console.ReadLine();
+
+        if (input == null)
+            break;
+
+        if (input.Equals("quit", StringComparison.OrdinalIgnoreCase))
+            break;
+
+        if (!string.IsNullOrWhiteSpace(input))
+        {
+            try
+            {
+                await session.Send(input);
+            }
+            catch (RpcException ex)
+            {
+                Console.WriteLine($"Failed to send: {ex.Message}");
+                break;
+            }
+        }
+    }
+
+    Console.WriteLine("Disconnecting...");
+    await session.Disconnect();
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error: {ex.Message}");
+}
+
+// ChatClient class here...
+```
+
+## Multi-Client Test
+
+Run the server, then open multiple terminals:
+
+**Terminal 1 (Server):**
+```
+Chat Server
+===========
+Listening on port 5000
+[Server] Alice connected
+[Server] Bob connected
+[Server] Alice: Hello everyone!
+[Server] Bob: Hi Alice!
+[Server] Alice disconnected
+```
+
+**Terminal 2 (Client 1):**
+```
+Chat Client
+Enter your username: Alice
+Connected!
+*** Bob joined the chat ***
+Hello everyone!
+[Bob] Hi Alice!
+quit
+Disconnected.
+```
+
+**Terminal 3 (Client 2):**
+```
+Chat Client
+Enter your username: Bob
+Connected!
+*** Alice joined the chat ***
+[Alice] Hello everyone!
+Hi Alice!
+*** Alice left the chat ***
+```
+
+## Features Demonstrated
+
+- **Capability passing**: Client provides a `ChatHandler` capability to the server
+- **Bidirectional communication**: Server calls client methods through the handler
+- **Session management**: Each client gets a unique `ChatSession` capability
+- **Graceful disconnection**: Proper cleanup when clients disconnect
+- **Broadcast pattern**: Server fans out messages to all connected clients

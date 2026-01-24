@@ -1,0 +1,77 @@
+---
+title: Examples
+description: Real-world examples demonstrating Cap'n Proto .NET patterns
+---
+
+This section contains practical examples showing common patterns and best practices.
+
+## Available Examples
+
+| Example | Description |
+|---------|-------------|
+| [Key-Value Store](/docs/examples/key-value-store) | Simple RPC service with CRUD operations |
+| [Chat Application](/docs/examples/chat-application) | Bidirectional communication with callbacks |
+| [File Transfer](/docs/examples/file-transfer) | Large data transfer with progress tracking |
+| [Microservices](/docs/examples/microservices) | Service discovery and load balancing |
+
+## Running Examples
+
+Each example includes:
+
+1. Cap'n Proto schema definition
+2. Server implementation
+3. Client usage
+4. Complete working code
+
+To run an example:
+
+```bash
+# Create new project
+dotnet new console -n ExampleProject
+cd ExampleProject
+
+# Add packages
+dotnet add package Capnp.Net.Runtime
+dotnet add package CapnpC.CSharp.MsBuild.Generation
+
+# Add schema file and code
+# Build and run
+dotnet run
+```
+
+## Common Patterns
+
+### Request-Response
+
+Simple RPC calls with immediate responses.
+
+```csharp
+var result = await service.Calculate(input);
+```
+
+### Callbacks
+
+Server calls back to client-provided capability.
+
+```csharp
+await service.Subscribe(new MyHandler());
+```
+
+### Streaming
+
+Continuous data flow using callback sequences.
+
+```csharp
+await service.StreamData(new DataHandler());
+await dataHandler.WaitForCompletion();
+```
+
+### Promise Pipelining
+
+Chain calls without waiting for intermediate results.
+
+```csharp
+var finalResult = await service.GetFactory()
+    .CreateProcessor()
+    .Process(data);
+```

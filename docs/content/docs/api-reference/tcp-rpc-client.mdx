@@ -1,0 +1,368 @@
+---
+title: TcpRpcClient
+description: API reference for TcpRpcClient class
+---
+
+TCP-based RPC client for Cap'n Proto.
+
+## Class Definition
+
+```csharp
+namespace Capnp.Rpc
+{
+    public class TcpRpcClient : IConnection, IDisposable
+    {
+        // Constructors
+        public TcpRpcClient();
+        public TcpRpcClient(string host, int port);
+
+        // Connection
+        public void Connect(string host, int port);
+        public Task? WhenConnected { get; }
+
+        // Bootstrap capability
+        public TProxy GetMain<TProxy>() where TProxy : class, IDisposable;
+
+        // State and statistics
+        public ConnectionState State { get; }
+        public long SendCount { get; }
+        public long RecvCount { get; }
+        public int? RemotePort { get; }
+        public int? LocalPort { get; }
+        public bool IsComputing { get; }
+        public bool IsWaitingForData { get; }
+
+        // Extensibility
+        public void AttachTracer(IFrameTracer tracer);
+        public void InjectMidlayer(Func<Stream, Stream> createFunc);
+
+        // Cleanup
+        public void Dispose();
+    }
+}
+```
+
+## Constructors
+
+### TcpRpcClient()
+
+Creates a client without connecting.
+
+```csharp
+public TcpRpcClient();
+```
+
+**Example:**
+
+```csharp
+var client = new TcpRpcClient();
+client.Connect("localhost", 5000);
+await client.WhenConnected;
+```
+
+### TcpRpcClient(string, int)
+
+Creates a client and initiates connection.
+
+```csharp
+public TcpRpcClient(string host, int port);
+```
+
+**Parameters:**
+- `host` - Server hostname or IP address.
+- `port` - Server port number.
+
+**Example:**
+
+```csharp
+using var client = new TcpRpcClient("localhost", 5000);
+await client.WhenConnected;
+```
+
+## Methods
+
+### Connect
+
+Initiates connection to a server.
+
+```csharp
+public void Connect(string host, int port);
+```
+
+**Parameters:**
+- `host` - Server hostname or IP address.
+- `port` - Server port number.
+
+**Throws:** `InvalidOperationException` if already connected.
+
+**Example:**
+
+```csharp
+var client = new TcpRpcClient();
+client.InjectMidlayer(s => new GZipStream(s, CompressionMode.Compress));
+client.Connect("localhost", 5000);
+await client.WhenConnected;
+```
+
+### GetMain&lt;TProxy&gt;
+
+Gets the bootstrap capability from the server.
+
+```csharp
+public TProxy GetMain<TProxy>() where TProxy : class, IDisposable;
+```
+
+**Type Parameters:**
+- `TProxy` - Client interface type (e.g., `Calculator.IClient`).
+
+**Returns:** Proxy to the bootstrap capability.
+
+**Example:**
+
+```csharp
+var calculator = client.GetMain<Calculator.IClient>();
+var result = await calculator.Add(1, 2);
+```
+
+### AttachTracer
+
+Attaches a frame tracer for debugging.
+
+```csharp
+public void AttachTracer(IFrameTracer tracer);
+```
+
+**Parameters:**
+- `tracer` - Frame tracer implementation.
+
+**Note:** Must be called before `Connect()`.
+
+**Example:**
+
+```csharp
+var client = new TcpRpcClient();
+client.AttachTracer(new ConsoleTracer());
+client.Connect("localhost", 5000);
+```
+
+### InjectMidlayer
+
+Injects a stream transformation layer.
+
+```csharp
+public void InjectMidlayer(Func<Stream, Stream> createFunc);
+```
+
+**Parameters:**
+- `createFunc` - Function that wraps the stream.
+
+**Note:** Must be called before `Connect()`.
+
+**Example:**
+
+```csharp
+var client = new TcpRpcClient();
+client.InjectMidlayer(stream =>
+    new GZipStream(stream, CompressionMode.Compress));
+client.Connect("localhost", 5000);
+```
+
+### Dispose
+
+Closes the connection and releases resources.
+
+```csharp
+public void Dispose();
+```
+
+**Example:**
+
+```csharp
+using var client = new TcpRpcClient("localhost", 5000);
+// Use client...
+// Automatically disposed at end of using block
+```
+
+## Properties
+
+### WhenConnected
+
+Task that completes when connection is established.
+
+```csharp
+public Task? WhenConnected { get; }
+```
+
+**Example:**
+
+```csharp
+await client.WhenConnected;
+// Connection is now active
+```
+
+With timeout:
+
+```csharp
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+await client.WhenConnected.WaitAsync(cts.Token);
+```
+
+### State
+
+Current connection state.
+
+```csharp
+public ConnectionState State { get; }
+```
+
+**Values:**
+- `Initializing` - Connection in progress
+- `Active` - Connected and operational
+- `Down` - Disconnected
+
+### SendCount
+
+Number of frames sent.
+
+```csharp
+public long SendCount { get; }
+```
+
+### RecvCount
+
+Number of frames received.
+
+```csharp
+public long RecvCount { get; }
+```
+
+### RemotePort
+
+Server port number, or null if not connected.
+
+```csharp
+public int? RemotePort { get; }
+```
+
+### LocalPort
+
+Local port number, or null if not connected.
+
+```csharp
+public int? LocalPort { get; }
+```
+
+### IsComputing
+
+Whether the client is processing a response.
+
+```csharp
+public bool IsComputing { get; }
+```
+
+### IsWaitingForData
+
+Whether the client is waiting for data from the server.
+
+```csharp
+public bool IsWaitingForData { get; }
+```
+
+## ConnectionState
+
+```csharp
+namespace Capnp.Rpc
+{
+    public enum ConnectionState
+    {
+        Initializing,
+        Active,
+        Down
+    }
+}
+```
+
+## RpcException
+
+```csharp
+namespace Capnp.Rpc
+{
+    public class RpcException : Exception
+    {
+        public RpcException(string message);
+        public RpcException(string message, Exception innerException);
+    }
+}
+```
+
+## Usage Examples
+
+### Basic Usage
+
+```csharp
+using var client = new TcpRpcClient("localhost", 5000);
+await client.WhenConnected;
+
+var calc = client.GetMain<Calculator.IClient>();
+var result = await calc.Add(10, 20);
+Console.WriteLine($"Result: {result}");
+```
+
+### With Error Handling
+
+```csharp
+using var client = new TcpRpcClient();
+
+try
+{
+    client.Connect("localhost", 5000);
+    await client.WhenConnected;
+
+    var calc = client.GetMain<Calculator.IClient>();
+    var result = await calc.Divide(10, 0);
+}
+catch (RpcException ex)
+{
+    Console.WriteLine($"RPC error: {ex.Message}");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Connection error: {ex.Message}");
+}
+```
+
+### Monitoring Connection
+
+```csharp
+var client = new TcpRpcClient("localhost", 5000);
+await client.WhenConnected;
+
+Console.WriteLine($"State: {client.State}");
+Console.WriteLine($"Local port: {client.LocalPort}");
+Console.WriteLine($"Remote port: {client.RemotePort}");
+
+// Periodically check stats
+while (client.State == ConnectionState.Active)
+{
+    Console.WriteLine($"Sent: {client.SendCount}, Received: {client.RecvCount}");
+    await Task.Delay(1000);
+}
+```
+
+### Debugging with Tracer
+
+```csharp
+public class DebugTracer : IFrameTracer
+{
+    public void TraceFrame(WireFrame frame, bool isIncoming)
+    {
+        var dir = isIncoming ? "IN " : "OUT";
+        var bytes = frame.ToArray().Length;
+        Console.WriteLine($"[{dir}] {bytes} bytes, {frame.Segments.Count} segments");
+    }
+}
+
+var client = new TcpRpcClient();
+client.AttachTracer(new DebugTracer());
+client.Connect("localhost", 5000);
+```

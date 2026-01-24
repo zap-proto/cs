@@ -1,0 +1,247 @@
+---
+title: DeserializerState
+description: API reference for DeserializerState struct
+---
+
+State for deserializing Cap'n Proto messages.
+
+## Struct Definition
+
+```csharp
+namespace Capnp
+{
+    public struct DeserializerState
+    {
+        // Factory methods
+        public static DeserializerState CreateRoot(
+            IReadOnlyList<Memory<ulong>> segments,
+            SecurityOptions? securityOptions = null);
+
+        // Navigation
+        public DeserializerState RequireStruct();
+        public DeserializerState RequireList();
+
+        // Reading
+        public T Read<T>() where T : struct, ICapnpSerializable<T>;
+    }
+}
+```
+
+## Factory Methods
+
+### CreateRoot
+
+Creates a DeserializerState from message segments.
+
+```csharp
+public static DeserializerState CreateRoot(
+    IReadOnlyList<Memory<ulong>> segments,
+    SecurityOptions? securityOptions = null);
+```
+
+**Parameters:**
+- `segments` - Message segments from `Framing.ReadSegments()`.
+- `securityOptions` - Optional security settings.
+
+**Returns:** DeserializerState positioned at the message root.
+
+**Throws:**
+- `DeserializationException` - If segments are invalid.
+
+**Example:**
+
+```csharp
+var segments = Framing.ReadSegments(bytes);
+var state = DeserializerState.CreateRoot(segments);
+```
+
+With security options:
+
+```csharp
+var options = new SecurityOptions
+{
+    TraversalLimit = 1024 * 1024,  // 1 MB
+    RecursionLimit = 32
+};
+
+var state = DeserializerState.CreateRoot(segments, options);
+```
+
+## Methods
+
+### RequireStruct
+
+Navigates to a struct pointer.
+
+```csharp
+public DeserializerState RequireStruct();
+```
+
+**Returns:** DeserializerState positioned at the struct.
+
+**Throws:** `DeserializationException` if not pointing to a struct.
+
+**Example:**
+
+```csharp
+var state = DeserializerState.CreateRoot(segments);
+var structState = state.RequireStruct();
+var reader = structState.Read<Person.READER>();
+```
+
+### RequireList
+
+Navigates to a list pointer.
+
+```csharp
+public DeserializerState RequireList();
+```
+
+**Returns:** DeserializerState positioned at the list.
+
+**Throws:** `DeserializationException` if not pointing to a list.
+
+### Read&lt;T&gt;
+
+Reads the current position as a specific type.
+
+```csharp
+public T Read<T>() where T : struct, ICapnpSerializable<T>;
+```
+
+**Type Parameters:**
+- `T` - Reader type (e.g., `Person.READER`).
+
+**Returns:** Reader instance for the data.
+
+**Example:**
+
+```csharp
+var state = DeserializerState.CreateRoot(segments);
+var person = state.RequireStruct().Read<Person.READER>();
+Console.WriteLine(person.Name);
+```
+
+## SecurityOptions
+
+Security settings for deserialization.
+
+```csharp
+namespace Capnp
+{
+    public class SecurityOptions
+    {
+        // Maximum bytes to traverse (default: 64MB)
+        public long TraversalLimit { get; set; }
+
+        // Maximum recursion depth (default: 64)
+        public int RecursionLimit { get; set; }
+    }
+}
+```
+
+### TraversalLimit
+
+Maximum total bytes that can be read from the message.
+
+```csharp
+public long TraversalLimit { get; set; }
+```
+
+**Default:** 64 * 1024 * 1024 (64 MB)
+
+Protects against amplification attacks where a small message references the same data many times.
+
+### RecursionLimit
+
+Maximum depth of nested structures.
+
+```csharp
+public int RecursionLimit { get; set; }
+```
+
+**Default:** 64
+
+Protects against stack overflow from deeply nested messages.
+
+### Usage
+
+```csharp
+// Strict limits for untrusted data
+var strictOptions = new SecurityOptions
+{
+    TraversalLimit = 1024 * 1024,  // 1 MB
+    RecursionLimit = 16
+};
+
+// Relaxed limits for trusted data
+var relaxedOptions = new SecurityOptions
+{
+    TraversalLimit = 1024 * 1024 * 1024,  // 1 GB
+    RecursionLimit = 128
+};
+
+var state = DeserializerState.CreateRoot(segments, strictOptions);
+```
+
+## DeserializationException
+
+Exception thrown for deserialization errors.
+
+```csharp
+namespace Capnp
+{
+    public class DeserializationException : Exception
+    {
+        public DeserializationException(string message);
+    }
+}
+```
+
+## Usage Examples
+
+### Basic Deserialization
+
+```csharp
+byte[] data = GetSerializedData();
+
+var segments = Framing.ReadSegments(data);
+var state = DeserializerState.CreateRoot(segments);
+var person = state.RequireStruct().Read<Person.READER>();
+
+Console.WriteLine($"Name: {person.Name}");
+Console.WriteLine($"Age: {person.Age}");
+```
+
+### With Error Handling
+
+```csharp
+try
+{
+    var segments = Framing.ReadSegments(untrustedData);
+    var options = new SecurityOptions
+    {
+        TraversalLimit = 1024 * 1024,
+        RecursionLimit = 32
+    };
+
+    var state = DeserializerState.CreateRoot(segments, options);
+    var message = state.RequireStruct().Read<Message.READER>();
+}
+catch (DeserializationException ex)
+{
+    Console.WriteLine($"Invalid message: {ex.Message}");
+}
+```
+
+### Reading Lists
+
+```csharp
+var state = DeserializerState.CreateRoot(segments);
+var addressBook = state.RequireStruct().Read<AddressBook.READER>();
+
+foreach (var person in addressBook.People)
+{
+    Console.WriteLine(person.Name);
+}
+```

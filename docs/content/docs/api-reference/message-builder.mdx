@@ -1,0 +1,254 @@
+---
+title: MessageBuilder
+description: API reference for MessageBuilder class
+---
+
+Entry point for building Cap'n Proto messages.
+
+## Class Definition
+
+```csharp
+namespace Capnp
+{
+    public class MessageBuilder
+    {
+        // Factory methods
+        public static MessageBuilder Create(int defaultSegmentSize = 128);
+        public static MessageBuilder Create<T>() where T : ISegmentAllocator, new();
+
+        // Build root struct
+        public TS BuildRoot<TS>() where TS : SerializerState, new();
+
+        // Create object without setting as root
+        public TS CreateObject<TS>() where TS : SerializerState, new();
+
+        // Properties
+        public SerializerState? Root { get; set; }
+        public WireFrame Frame { get; }
+        public ISegmentAllocator Allocator { get; }
+
+        // Capability table
+        public void InitCapTable();
+    }
+}
+```
+
+## Factory Methods
+
+### Create
+
+Creates a new MessageBuilder with default segment allocator.
+
+```csharp
+public static MessageBuilder Create(int defaultSegmentSize = 128);
+```
+
+**Parameters:**
+- `defaultSegmentSize` - Initial segment size in words (1 word = 8 bytes). Default: 128 words (1 KB).
+
+**Returns:** New MessageBuilder instance.
+
+**Example:**
+
+```csharp
+// Default size
+var message = MessageBuilder.Create();
+
+// Custom size for large messages
+var largeMessage = MessageBuilder.Create(defaultSegmentSize: 8192);  // 64 KB
+```
+
+### Create&lt;T&gt;
+
+Creates a MessageBuilder with a custom segment allocator.
+
+```csharp
+public static MessageBuilder Create<T>() where T : ISegmentAllocator, new();
+```
+
+**Type Parameters:**
+- `T` - Allocator type implementing ISegmentAllocator.
+
+**Example:**
+
+```csharp
+var message = MessageBuilder.Create<MyCustomAllocator>();
+```
+
+## Methods
+
+### BuildRoot&lt;TS&gt;
+
+Builds the root struct of the message.
+
+```csharp
+public TS BuildRoot<TS>() where TS : SerializerState, new();
+```
+
+**Type Parameters:**
+- `TS` - Writer type (e.g., `MyStruct.WRITER`).
+
+**Returns:** Writer instance for the root struct.
+
+**Throws:** `InvalidOperationException` if root is already set.
+
+**Example:**
+
+```csharp
+var message = MessageBuilder.Create();
+var person = message.BuildRoot<Person.WRITER>();
+person.Name = "Alice";
+person.Age = 30;
+```
+
+### CreateObject&lt;TS&gt;
+
+Creates a struct without setting it as the root.
+
+```csharp
+public TS CreateObject<TS>() where TS : SerializerState, new();
+```
+
+**Type Parameters:**
+- `TS` - Writer type.
+
+**Returns:** Writer instance.
+
+**Example:**
+
+```csharp
+var message = MessageBuilder.Create();
+var root = message.BuildRoot<Container.WRITER>();
+
+// Create nested object
+var nested = message.CreateObject<NestedStruct.WRITER>();
+nested.Value = 42;
+```
+
+### InitCapTable
+
+Initializes the capability table for RPC messages.
+
+```csharp
+public void InitCapTable();
+```
+
+**Example:**
+
+```csharp
+var message = MessageBuilder.Create();
+message.InitCapTable();
+// Now capabilities can be serialized
+```
+
+## Properties
+
+### Root
+
+Gets or sets the root serializer state.
+
+```csharp
+public SerializerState? Root { get; set; }
+```
+
+### Frame
+
+Gets the wire representation of the message.
+
+```csharp
+public WireFrame Frame { get; }
+```
+
+**Example:**
+
+```csharp
+var message = MessageBuilder.Create();
+message.BuildRoot<MyStruct.WRITER>().Field = "value";
+
+WireFrame frame = message.Frame;
+byte[] bytes = frame.ToArray();
+```
+
+### Allocator
+
+Gets the segment allocator.
+
+```csharp
+public ISegmentAllocator Allocator { get; }
+```
+
+## WireFrame
+
+Wire representation of a serialized message.
+
+```csharp
+namespace Capnp
+{
+    public readonly struct WireFrame
+    {
+        // Message segments
+        public IReadOnlyList<Memory<ulong>> Segments { get; }
+
+        // Convert to byte array
+        public byte[] ToArray();
+    }
+}
+```
+
+### Segments
+
+Gets the message segments as 64-bit word arrays.
+
+```csharp
+public IReadOnlyList<Memory<ulong>> Segments { get; }
+```
+
+### ToArray
+
+Converts the frame to a contiguous byte array.
+
+```csharp
+public byte[] ToArray();
+```
+
+**Returns:** Byte array containing the framed message.
+
+## Usage Examples
+
+### Basic Serialization
+
+```csharp
+var message = MessageBuilder.Create();
+var root = message.BuildRoot<Person.WRITER>();
+root.Name = "Alice";
+root.Email = "alice@example.com";
+
+byte[] bytes = message.Frame.ToArray();
+```
+
+### Nested Structs
+
+```csharp
+var message = MessageBuilder.Create();
+var order = message.BuildRoot<Order.WRITER>();
+order.Id = 123;
+
+var customer = order.Customer;
+customer.Name = "Bob";
+
+var items = order.Items;
+items.Init(2);
+items[0].Product = "Widget";
+items[0].Quantity = 5;
+items[1].Product = "Gadget";
+items[1].Quantity = 3;
+```
+
+### Memory-Efficient Large Messages
+
+```csharp
+// Pre-allocate for known size
+int estimatedBytes = 1024 * 1024;  // 1 MB
+int words = (estimatedBytes + 7) / 8;
+var message = MessageBuilder.Create(defaultSegmentSize: words);
+```

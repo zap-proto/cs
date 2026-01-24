@@ -1,0 +1,373 @@
+---
+title: TcpRpcServer
+description: API reference for TcpRpcServer class
+---
+
+TCP-based RPC server for Cap'n Proto.
+
+## Class Definition
+
+```csharp
+namespace Capnp.Rpc
+{
+    public class TcpRpcServer : ISupportsMidlayers, IDisposable
+    {
+        // Constructors
+        public TcpRpcServer();
+        public TcpRpcServer(IPAddress localAddr, int port);
+
+        // Server control
+        public void StartAccepting(IPAddress localAddr, int port);
+        public void StopListening();
+
+        // Bootstrap capability
+        public object Main { set; }
+
+        // Connection management
+        public IConnection[] Connections { get; }
+        public int ConnectionCount { get; }
+        public bool IsAlive { get; }
+
+        // Events
+        public event Action<object, ConnectionEventArgs>? OnConnectionChanged;
+
+        // Extensibility
+        public void InjectMidlayer(Func<Stream, Stream> createFunc);
+
+        // Cleanup
+        public void Dispose();
+    }
+}
+```
+
+## Constructors
+
+### TcpRpcServer()
+
+Creates a server without starting.
+
+```csharp
+public TcpRpcServer();
+```
+
+**Example:**
+
+```csharp
+var server = new TcpRpcServer();
+server.Main = new CalculatorImpl();
+server.StartAccepting(IPAddress.Any, 5000);
+```
+
+### TcpRpcServer(IPAddress, int)
+
+Creates and starts a server.
+
+```csharp
+public TcpRpcServer(IPAddress localAddr, int port);
+```
+
+**Parameters:**
+- `localAddr` - IP address to bind to.
+- `port` - Port number.
+
+**Example:**
+
+```csharp
+using var server = new TcpRpcServer(IPAddress.Any, 5000);
+server.Main = new CalculatorImpl();
+```
+
+## Methods
+
+### StartAccepting
+
+Starts accepting client connections.
+
+```csharp
+public void StartAccepting(IPAddress localAddr, int port);
+```
+
+**Parameters:**
+- `localAddr` - IP address to bind to.
+- `port` - Port number (0 for auto-assign).
+
+**Throws:** `InvalidOperationException` if already accepting.
+
+**Example:**
+
+```csharp
+var server = new TcpRpcServer();
+server.Main = new CalculatorImpl();
+
+// Listen on all interfaces
+server.StartAccepting(IPAddress.Any, 5000);
+
+// Or listen on localhost only
+server.StartAccepting(IPAddress.Loopback, 5000);
+
+// Or auto-assign port
+server.StartAccepting(IPAddress.Any, 0);
+```
+
+### StopListening
+
+Stops accepting new connections.
+
+```csharp
+public void StopListening();
+```
+
+Existing connections remain active.
+
+**Example:**
+
+```csharp
+server.StopListening();
+// Existing connections continue working
+// No new connections accepted
+```
+
+### InjectMidlayer
+
+Injects a stream transformation layer for all connections.
+
+```csharp
+public void InjectMidlayer(Func<Stream, Stream> createFunc);
+```
+
+**Parameters:**
+- `createFunc` - Function that wraps the stream.
+
+**Note:** Must be called before `StartAccepting()`.
+
+**Example:**
+
+```csharp
+var server = new TcpRpcServer();
+server.InjectMidlayer(stream =>
+    new GZipStream(stream, CompressionMode.Decompress));
+server.Main = new CalculatorImpl();
+server.StartAccepting(IPAddress.Any, 5000);
+```
+
+### Dispose
+
+Stops the server and closes all connections.
+
+```csharp
+public void Dispose();
+```
+
+**Example:**
+
+```csharp
+using var server = new TcpRpcServer(IPAddress.Any, 5000);
+server.Main = new CalculatorImpl();
+// Server runs until end of using block
+```
+
+## Properties
+
+### Main
+
+Sets the bootstrap capability served to clients.
+
+```csharp
+public object Main { set; }
+```
+
+**Example:**
+
+```csharp
+server.Main = new CalculatorImpl();
+```
+
+### Connections
+
+Gets all active connections.
+
+```csharp
+public IConnection[] Connections { get; }
+```
+
+**Example:**
+
+```csharp
+foreach (var conn in server.Connections)
+{
+    Console.WriteLine($"Connection: {conn.RemotePort}, State: {conn.State}");
+}
+```
+
+### ConnectionCount
+
+Gets the number of active connections.
+
+```csharp
+public int ConnectionCount { get; }
+```
+
+### IsAlive
+
+Gets whether the acceptor thread is running.
+
+```csharp
+public bool IsAlive { get; }
+```
+
+## Events
+
+### OnConnectionChanged
+
+Fired when a connection state changes.
+
+```csharp
+public event Action<object, ConnectionEventArgs>? OnConnectionChanged;
+```
+
+**Example:**
+
+```csharp
+server.OnConnectionChanged += (sender, args) =>
+{
+    var conn = args.Connection;
+    Console.WriteLine($"Connection {conn.RemotePort}: {conn.State}");
+
+    if (conn.State == ConnectionState.Down)
+    {
+        Console.WriteLine("Client disconnected");
+    }
+};
+```
+
+## ConnectionEventArgs
+
+```csharp
+namespace Capnp.Rpc
+{
+    public class ConnectionEventArgs : EventArgs
+    {
+        public IConnection Connection { get; }
+    }
+}
+```
+
+## IConnection
+
+Interface for connection objects.
+
+```csharp
+namespace Capnp.Rpc
+{
+    public interface IConnection
+    {
+        ConnectionState State { get; }
+        long SendCount { get; }
+        long RecvCount { get; }
+        int? LocalPort { get; }
+        int? RemotePort { get; }
+        bool IsComputing { get; }
+        bool IsWaitingForData { get; }
+
+        void AttachTracer(IFrameTracer tracer);
+        void InjectMidlayer(Func<Stream, Stream> createFunc);
+        void Close();
+    }
+}
+```
+
+## Usage Examples
+
+### Basic Server
+
+```csharp
+using var server = new TcpRpcServer();
+server.Main = new CalculatorImpl();
+server.StartAccepting(IPAddress.Any, 5000);
+
+Console.WriteLine("Server running on port 5000");
+await Task.Delay(Timeout.Infinite);
+```
+
+### With Connection Monitoring
+
+```csharp
+var server = new TcpRpcServer();
+
+server.OnConnectionChanged += (sender, args) =>
+{
+    var conn = args.Connection;
+    switch (conn.State)
+    {
+        case ConnectionState.Active:
+            Console.WriteLine($"Client connected from port {conn.RemotePort}");
+            break;
+        case ConnectionState.Down:
+            Console.WriteLine($"Client disconnected");
+            break;
+    }
+};
+
+server.Main = new CalculatorImpl();
+server.StartAccepting(IPAddress.Any, 5000);
+```
+
+### Graceful Shutdown
+
+```csharp
+using var server = new TcpRpcServer(IPAddress.Any, 5000);
+server.Main = new CalculatorImpl();
+
+Console.WriteLine("Press Enter to stop...");
+Console.ReadLine();
+
+// Stop accepting new connections
+server.StopListening();
+
+// Wait for existing requests to complete
+await Task.Delay(TimeSpan.FromSeconds(5));
+
+// Dispose closes all connections
+```
+
+### Per-Connection Capabilities
+
+```csharp
+public class SessionAwareServer : RootCapability.IServer
+{
+    private readonly ConcurrentDictionary<int, SessionData> _sessions = new();
+
+    public Task<Session.IClient> Connect(CancellationToken ct)
+    {
+        var sessionId = Interlocked.Increment(ref _nextId);
+        var session = new SessionImpl(sessionId);
+        _sessions[sessionId] = new SessionData();
+        return Task.FromResult<Session.IClient>(session);
+    }
+}
+
+var server = new TcpRpcServer(IPAddress.Any, 5000);
+server.Main = new SessionAwareServer();
+```
+
+### Load Monitoring
+
+```csharp
+async Task MonitorServer(TcpRpcServer server)
+{
+    while (server.IsAlive)
+    {
+        Console.WriteLine($"Active connections: {server.ConnectionCount}");
+
+        long totalSent = 0, totalRecv = 0;
+        foreach (var conn in server.Connections)
+        {
+            totalSent += conn.SendCount;
+            totalRecv += conn.RecvCount;
+        }
+
+        Console.WriteLine($"Total frames - Sent: {totalSent}, Received: {totalRecv}");
+        await Task.Delay(5000);
+    }
+}
+```
