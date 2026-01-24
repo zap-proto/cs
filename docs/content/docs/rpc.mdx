@@ -43,7 +43,7 @@ interface AdvancedCalculator extends(Calculator) {
 Implement the generated `IServer` interface:
 
 ```csharp
-using Capnp.Rpc;
+using Zap.Rpc;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -82,7 +82,7 @@ public class CalculatorImpl : Calculator.IServer
 ### Starting the Server
 
 ```csharp
-using Capnp.Rpc;
+using Zap.Rpc;
 using System.Net;
 
 using var server = new TcpRpcServer();
@@ -122,7 +122,7 @@ server.StartAccepting(IPAddress.Any, 5000);
 ### Connecting to a Server
 
 ```csharp
-using Capnp.Rpc;
+using Zap.Rpc;
 
 // Connect to server
 using var client = new TcpRpcClient("localhost", 5000);

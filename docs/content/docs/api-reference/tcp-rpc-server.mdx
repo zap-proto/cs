@@ -8,7 +8,7 @@ TCP-based RPC server for ZAP.
 ## Class Definition
 
 ```csharp
-namespace Capnp.Rpc
+namespace Zap.Rpc
 {
     public class TcpRpcServer : ISupportsMidlayers, IDisposable
     {
@@ -243,7 +243,7 @@ server.OnConnectionChanged += (sender, args) =>
 ## ConnectionEventArgs
 
 ```csharp
-namespace Capnp.Rpc
+namespace Zap.Rpc
 {
     public class ConnectionEventArgs : EventArgs
     {
@@ -257,7 +257,7 @@ namespace Capnp.Rpc
 Interface for connection objects.
 
 ```csharp
-namespace Capnp.Rpc
+namespace Zap.Rpc
 {
     public interface IConnection
     {

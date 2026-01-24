@@ -42,7 +42,7 @@ With MSBuild integration, code generates automatically during build.
 With the command-line tool:
 
 ```bash
-capnp compile -o csharp addressbook.zap
+zap compile -o csharp addressbook.zap
 ```
 
 This generates `addressbook.zap.cs` containing:
@@ -55,7 +55,7 @@ This generates `addressbook.zap.cs` containing:
 ## Serialize Data
 
 ```csharp
-using Capnp;
+using Zap;
 
 // Create a message
 var message = MessageBuilder.Create();
@@ -89,7 +89,7 @@ Console.WriteLine($"Serialized {bytes.Length} bytes");
 ## Deserialize Data
 
 ```csharp
-using Capnp;
+using Zap;
 
 // Parse the serialized data
 var segments = Framing.ReadSegments(bytes);
@@ -115,7 +115,7 @@ foreach (var person in addressBook.People)
 Domain classes provide a familiar C# object model:
 
 ```csharp
-using Capnp;
+using Zap;
 
 // Create using domain class
 var person = new Person
@@ -191,7 +191,7 @@ await using (var stream = File.OpenRead("addressbook.bin"))
 ## Complete Example
 
 ```csharp
-using Capnp;
+using Zap;
 
 class Program
 {

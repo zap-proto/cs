@@ -20,8 +20,8 @@ ZAP is a data interchange format and capability-based RPC system. Unlike Protoco
 ## Quick Example
 
 ```csharp
-using Capnp;
-using Capnp.Rpc;
+using Zap;
+using Zap.Rpc;
 
 // Connect to a ZAP RPC server
 using var client = new TcpRpcClient("localhost", 5000);
@@ -39,9 +39,9 @@ Console.WriteLine($"1 + 2 = {result}");
 
 | Package | Description |
 |---------|-------------|
-| `Capnp.Net.Runtime` | Runtime library for serialization and RPC |
-| `CapnpC.CSharp.MsBuild.Generation` | MSBuild integration for code generation |
-| `capnpc-csharp` | Command-line code generator |
+| `Zap.Net.Runtime` | Runtime library for serialization and RPC |
+| `ZapC.CSharp.MsBuild.Generation` | MSBuild integration for code generation |
+| `zapc-csharp` | Command-line code generator |
 
 ## Next Steps
 
