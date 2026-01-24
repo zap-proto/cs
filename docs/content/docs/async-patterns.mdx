@@ -92,7 +92,7 @@ var results = await Task.WhenAll(addTask, subTask);
 
 Use callbacks for server-to-client streaming:
 
-```capnp
+```protobuf
 interface DataStream {
   subscribe @0 (handler :DataHandler) -> ();
 }
@@ -138,7 +138,7 @@ await handler.WaitForCompletion();
 
 ### Bidirectional Communication
 
-```capnp
+```protobuf
 interface Chat {
   connect @0 (client :ChatClient) -> (session :ChatSession);
 }
