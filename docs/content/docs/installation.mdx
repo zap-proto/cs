@@ -12,7 +12,7 @@ This guide covers installing the ZAP runtime, code generator, and compiler.
 
 ### Installing the ZAP Compiler
 
-The ZAP compiler is required at build time to compile `.capnp` schema files.
+The ZAP compiler is required at build time to compile `.zap` schema files.
 
 **Windows (Chocolatey):**
 
@@ -74,7 +74,7 @@ dotnet add package CapnpC.CSharp.MsBuild.Generation
 ```
 
 This package:
-- Automatically detects `.capnp` files in your project
+- Automatically detects `.zap` files in your project
 - Generates C# code during build
 - Supports incremental builds
 
@@ -82,7 +82,7 @@ Add schema files to your `.csproj`:
 
 ```xml
 <ItemGroup>
-  <Capnp Include="schemas/*.capnp" />
+  <Capnp Include="schemas/*.zap" />
 </ItemGroup>
 ```
 
@@ -97,7 +97,7 @@ dotnet tool install capnpc-csharp --global
 Usage:
 
 ```bash
-capnp compile -o csharp schema.capnp
+capnp compile -o csharp schema.zap
 ```
 
 ## Project Setup
@@ -118,7 +118,7 @@ capnp compile -o csharp schema.capnp
   </ItemGroup>
 
   <ItemGroup>
-    <Capnp Include="**/*.capnp" />
+    <Capnp Include="**/*.zap" />
   </ItemGroup>
 </Project>
 ```
@@ -132,13 +132,13 @@ MyProject/
   MyProject.csproj
   Program.cs
   Schemas/
-    addressbook.capnp
-    calculator.capnp
+    addressbook.zap
+    calculator.zap
 ```
 
 ## Verifying Installation
 
-Create a test schema `test.capnp`:
+Create a test schema `test.zap`:
 
 ```protobuf
 @0xabcdef1234567890;
@@ -155,7 +155,7 @@ Build your project:
 dotnet build
 ```
 
-If successful, `test.capnp.cs` will be generated in your `obj` directory and compiled into your assembly.
+If successful, `test.zap.cs` will be generated in your `obj` directory and compiled into your assembly.
 
 ## Troubleshooting
 
