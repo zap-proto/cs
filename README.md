@@ -1,5 +1,8 @@
 # capnproto-dotnetcore [![Build status](https://ci.appveyor.com/api/projects/status/tx4jjl2etiqve2xg/branch/master?svg=true)](https://ci.appveyor.com/project/c80k/capnproto-dotnetcore/branch/master) [![Coverage Status](https://coveralls.io/repos/github/c80k/capnproto-dotnetcore/badge.svg)](https://coveralls.io/github/c80k/capnproto-dotnetcore)
 
+> **Docs:** [ZAP .NET / C# SDK](https://zap-proto.dev/docs/sdks/csharp) · part of the [ZAP Protocol](https://zap-proto.io)
+
+
 A Cap'n Proto implementation for .NET Standard 2.0 (credits to [lostinplace](https://github.com/lostinplace)) and .NET Core.
 
 ["Cap'n Proto is an insanely fast data interchange format and capability-based RPC system."](https://capnproto.org/) Whilst the original implementation is written in C++ there are several ports to other languages. This is a C# implementation for .NET Core.
