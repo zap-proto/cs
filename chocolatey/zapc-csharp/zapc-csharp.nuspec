@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>zapc-csharp</id>
+    <version>$version$</version>
+    <packageSourceUrl>https://github.com/zap-proto/cs/tree/master/chocolatey</packageSourceUrl>
+    <authors>Christian Köllner and contributors</authors>
+    <owners>Christian Köllner</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <!--<license type="expression">MIT</license>-->
+    <licenseUrl>https://github.com/zap-proto/cs/blob/master/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/zap-proto/cs</projectUrl>
+    <title>[Deprecated] zapc-csharp (Install)</title>
+    <description>ZAP C# code generator backend, portable .NET Core 2.1
+    This package is deprecated now. It was converted to a .NET Core CLI tool which is now hosted here: https://www.nuget.org/packages/zapc-csharp
+    To install, type: dotnet tool install -g zapc-csharp
+    </description>
+    <summary>ZAP C# code generator backend. This is the portable variant which depends on .NET Core 2.1 (as opposed to zapc-csharp-win-x86)</summary>
+    <copyright>Christian Köllner and contributors</copyright>
+    <projectSourceUrl>https://github.com/zap-proto/cs</projectSourceUrl>
+    <docsUrl>https://github.com/zap-proto/cs/wiki</docsUrl>
+    <bugTrackerUrl>https://github.com/zap-proto/cs/issues</bugTrackerUrl>
+    <tags>zap zapc RPC serialization cerealization</tags>
+    <!--<repository type="Git" />-->
+    <releaseNotes>https://github.com/zap-proto/cs/releases/tag/v$version$</releaseNotes>
+    <dependencies>
+        <dependency id="zap" version="0.7.0" />
+    </dependencies>
+  </metadata>
+<files/>
+</package>

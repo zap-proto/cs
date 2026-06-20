@@ -12,11 +12,11 @@ export const baseOptions: BaseLayoutProps = {
     },
     {
       text: 'GitHub',
-      url: 'https://github.com/zap-protocol/zap-cs',
+      url: 'https://github.com/zap-proto/cs',
     },
     {
       text: 'NuGet',
-      url: 'https://www.nuget.org/packages/Capnp.Net.Runtime',
+      url: 'https://www.nuget.org/packages/Zap.Net.Runtime',
     },
   ],
 };

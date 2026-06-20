@@ -13,19 +13,19 @@ namespace MsBuildGenerationTest
             {
             }
 
-            var vatId = new Capnp.Rpc.Twoparty.VatId();
+            var vatId = new Zap.Rpc.Twoparty.VatId();
             use(vatId);
-            var msg = new Capnp.Rpc.Message();
+            var msg = new Zap.Rpc.Message();
             use(msg);
-            var node = new Capnp.Schema.Node();
+            var node = new Zap.Schema.Node();
             use(node);
-            var x = Capnproto_test.Capnp.Test.TestEnum.garply;
+            var x = Zap_test.Zap.Test.TestEnum.garply;
             use(x);
-            var imp = new CapnpGen.TestImport();
+            var imp = new ZapGen.TestImport();
             use(imp);
-            var imp2 = new CapnpGen.TestImport2();
+            var imp2 = new ZapGen.TestImport2();
             use(imp2);
-            var book = new CapnpGen.AddressBook();
+            var book = new ZapGen.AddressBook();
             use(book);
         }
     }

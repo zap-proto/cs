@@ -1,0 +1,78 @@
+﻿<Project TreatAsLocalProperty="TaskFolder;TaskAssembly">
+
+  <PropertyGroup>
+    <ZapcCsharp_CpsExtensionDesignTimeTargetsPath Condition="'$(ZapcCsharp_CpsExtensionDesignTimeTargetsPath)' == ''">$(MSBuildThisFileDirectory)CPS\Buildsystem\CpsExtension.DesignTime.targets</ZapcCsharp_CpsExtensionDesignTimeTargetsPath>
+  </PropertyGroup>
+
+  <Import Project="$(ZapcCsharp_CpsExtensionDesignTimeTargetsPath)" Condition="'$(DesignTimeBuild)' == 'true' " />
+
+
+  <PropertyGroup>
+    <ZapcCsharp_UseHostCompilerIfAvailable Condition="'$(ZapcCsharp_UseHostCompilerIfAvailable)'==''">false</ZapcCsharp_UseHostCompilerIfAvailable>
+    <UseHostCompilerIfAvailable>$(ZapcCsharp_UseHostCompilerIfAvailable)</UseHostCompilerIfAvailable>
+  </PropertyGroup>
+
+
+  <PropertyGroup>
+    <OverwriteReadOnlyFiles Condition="'$(OverwriteReadOnlyFiles)'==''">false</OverwriteReadOnlyFiles>
+    <ForceGeneration Condition="'$(ForceGeneration)'==''">false</ForceGeneration>
+
+    <ShowTrace Condition="'$(ShowTrace)'==''">false</ShowTrace>
+    <VerboseOutput Condition="'$(VerboseOutput)'==''">true</VerboseOutput>
+    <ZapcCsharp_DebugMSBuildTask Condition="'$(ZapcCsharp_DebugMSBuildTask)' == ''">false</ZapcCsharp_DebugMSBuildTask>
+
+    <_ZapcCsharpPropsImported Condition="'$(_ZapcCsharpPropsImported)'==''">true</_ZapcCsharpPropsImported>
+  </PropertyGroup>
+
+  <!--
+    property group for feature flags
+  -->
+  <PropertyGroup>
+
+    <!--
+      feature flag to enable experimental support for cleaning up generated code-behind files during rebuild and clean scenarios
+    -->
+    <ZapcCsharp_DeleteCodeBehindFilesOnCleanRebuild Condition="'$(ZapcCsharp_DeleteCodeBehindFilesOnCleanRebuild)'==''">false</ZapcCsharp_DeleteCodeBehindFilesOnCleanRebuild>
+
+    <!--
+      net.sdk support: feature flag to enable experimental support for net.sdk project system
+    -->
+    <ZapcCsharp_EnableDefaultCompileItems Condition="'$(ZapcCsharp_EnableDefaultCompileItems)'==''">true</ZapcCsharp_EnableDefaultCompileItems>
+    <ZapcCsharp_EnableWarnForFeatureCodeBehindFilesWithoutCorrespondingZapFile Condition="'$(ZapcCsharp_EnableWarnForFeatureCodeBehindFilesWithoutCorrespondingZapFile)'==''">$(ZapcCsharp_EnableDefaultCompileItems)</ZapcCsharp_EnableWarnForFeatureCodeBehindFilesWithoutCorrespondingZapFile>
+
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/*.zap</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ZapFiles Include="**\*.zap" >
+      <CodeBehindFile>%(RelativeDir)%(Filename).zap.cs</CodeBehindFile>
+      <Visible>$(UsingMicrosoftNETSdk)</Visible>
+      <WorkingDirectory>$(ProjectDir)</WorkingDirectory>
+    </ZapFiles>
+
+    <!-- obsolete codebehind files, scenarios:
+         - after rename operation
+         - after deletion of a feature file
+         - after pulling latest changes from version control with above changes
+     -->
+    <ZapCsharpObsoleteCodeBehindFiles Include="**\*.zap.cs" Exclude="@(ZapFiles->'%(CodeBehindFile)')" />
+
+    <!-- Support for Visual Studio Incremental Build
+        https://github.com/techtalk/SpecFlow/issues/1319
+     -->
+    <UpToDateCheckInput Include="@(ZapFiles)" />
+    <UpToDateCheckBuild Include="@(ZapFiles->'%(CodeBehindFile)')" Original="@(ZapFiles)" />
+    <CustomAdditionalCompileInputs Include="@(ZapFiles->'%(CodeBehindFile)')" />
+
+  </ItemGroup>
+
+
+  <PropertyGroup>
+    <_ZapcCsharp_TaskFolder Condition=" '$(MSBuildRuntimeType)' == 'Core' And '$(_ZapcCsharp_TaskFolder)' == ''">netcoreapp2.1</_ZapcCsharp_TaskFolder>
+    <_ZapcCsharp_TaskFolder Condition=" '$(MSBuildRuntimeType)' != 'Core' And '$(_ZapcCsharp_TaskFolder)' == ''">net471</_ZapcCsharp_TaskFolder>
+    <_ZapcCsharp_TaskAssembly Condition=" '$(_ZapcCsharp_TaskAssembly)' == '' ">..\tasks\$(_ZapcCsharp_TaskFolder)\ZapC.CSharp.MsBuild.Generation.dll</_ZapcCsharp_TaskAssembly>
+  </PropertyGroup>
+
+  <Import Project="ZapC.CSharp.MsBuild.Generation.tasks"/>
+
+</Project>

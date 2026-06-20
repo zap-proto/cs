@@ -8,9 +8,9 @@ cache:
 install:
   - cd c:\tools\vcpkg
   - vcpkg integrate install
-  - vcpkg install capnproto
+  - vcpkg install zap
   - set PATH_COPY=%PATH%
-  - set PATH=%PATH%;c:\tools\vcpkg\installed\x86-windows\tools\capnproto
+  - set PATH=%PATH%;c:\tools\vcpkg\installed\x86-windows\tools\zap
   - cd %APPVEYOR_BUILD_FOLDER%
   - dotnet tool install -g nbgv --version 3.4.240
   - choco install reportgenerator.portable --version=4.5.6 --force -y
@@ -26,36 +26,36 @@ before_build:
   - cmd: nbgv cloud
   - cmd: dotnet --version
   - cmd: msbuild -ver
-  - cmd: dotnet restore ./Capnp.Net.Runtime/Capnp.Net.Runtime.csproj --verbosity m
-  - cmd: dotnet restore ./Capnp.Net.Runtime.Tests/Capnp.Net.Runtime.Tests.csproj --verbosity m
-  - cmd: dotnet restore ./CapnpC.CSharp.Generator/CapnpC.CSharp.Generator.csproj --verbosity m  
-  - cmd: dotnet restore ./CapnpC.CSharp.Generator.Tests/CapnpC.CSharp.Generator.Tests.csproj --verbosity m  
-  - cmd: dotnet restore ./CapnpC.CSharp.MsBuild.Generation/CapnpC.CSharp.MsBuild.Generation.csproj --verbosity m  
-  - cmd: dotnet restore ./CapnpC.CSharp.MsBuild.Generation.Tests/CapnpC.CSharp.MsBuild.Generation.Tests.csproj --verbosity m  
-  - cmd: dotnet restore ./capnpc-csharp/capnpc-csharp.csproj --verbosity m  
+  - cmd: dotnet restore ./Zap.Net.Runtime/Zap.Net.Runtime.csproj --verbosity m
+  - cmd: dotnet restore ./Zap.Net.Runtime.Tests/Zap.Net.Runtime.Tests.csproj --verbosity m
+  - cmd: dotnet restore ./ZapC.CSharp.Generator/ZapC.CSharp.Generator.csproj --verbosity m  
+  - cmd: dotnet restore ./ZapC.CSharp.Generator.Tests/ZapC.CSharp.Generator.Tests.csproj --verbosity m  
+  - cmd: dotnet restore ./ZapC.CSharp.MsBuild.Generation/ZapC.CSharp.MsBuild.Generation.csproj --verbosity m  
+  - cmd: dotnet restore ./ZapC.CSharp.MsBuild.Generation.Tests/ZapC.CSharp.MsBuild.Generation.Tests.csproj --verbosity m  
+  - cmd: dotnet restore ./zapc-csharp/zapc-csharp.csproj --verbosity m  
 build_script:
-  - cmd: msbuild ./Capnp.Net.sln /p:Configuration="Debug" -V:m
-  - cmd: msbuild ./Capnp.Net.sln /p:Configuration="Release" -V:m
-  - cmd: msbuild ./CapnpCompatTest.sln /p:Configuration="Debug" -V:m
-  - cmd: msbuild ./CapnpCompatTest.sln /p:Configuration="Release" -V:m
-  - ps: scripts\capnpc-csharp-pack.ps1
+  - cmd: msbuild ./Zap.Net.sln /p:Configuration="Debug" -V:m
+  - cmd: msbuild ./Zap.Net.sln /p:Configuration="Release" -V:m
+  - cmd: msbuild ./ZapCompatTest.sln /p:Configuration="Debug" -V:m
+  - cmd: msbuild ./ZapCompatTest.sln /p:Configuration="Release" -V:m
+  - ps: scripts\zapc-csharp-pack.ps1
 after_build:
   # For once the build has completed
 artifacts:
- - path: bin\Release\Capnp.Net.Runtime.*.nupkg
-   name: Capnp.Net.Runtime
+ - path: bin\Release\Zap.Net.Runtime.*.nupkg
+   name: Zap.Net.Runtime
    type: NuGetPackage
- - path: bin\Release\CapnpC.CSharp.MsBuild.Generation.*.nupkg
-   name: CapnpC.CSharp.MsBuild.Generation
+ - path: bin\Release\ZapC.CSharp.MsBuild.Generation.*.nupkg
+   name: ZapC.CSharp.MsBuild.Generation
    type: NuGetPackage
- - path: chocolatey\install\capnpc-csharp-win-x86.*.nupkg
-   name: capnpc-csharp-win-x86
+ - path: chocolatey\install\zapc-csharp-win-x86.*.nupkg
+   name: zapc-csharp-win-x86
    type: NuGetPackage
- - path: chocolatey\install\capnpc-csharp.*-deprecated.nupkg
-   name: capnpc-csharp-deprecated
+ - path: chocolatey\install\zapc-csharp.*-deprecated.nupkg
+   name: zapc-csharp-deprecated
    type: NuGetPackage
- - path: capnpc-csharp\nupkg\*.nupkg
-   name: capnpc-csharp
+ - path: zapc-csharp\nupkg\*.nupkg
+   name: zapc-csharp
    type: NuGetPackage
  - path: coverage
    name: Coverage report
@@ -64,29 +64,29 @@ test_script:
   - cmd: |
       nbgv get-version -v NuGetPackageVersion >> myversion.txt
       set /P VERSION=< myversion.txt
-      vstest.console /logger:Appveyor /inIsolation CapnpC.CSharp.Generator.Tests\bin\Release\netcoreapp3.1\CapnpC.CSharp.Generator.Tests.dll
-      cd %APPVEYOR_BUILD_FOLDER%\capnpc-csharp
-      dotnet tool install --global --add-source ./nupkg capnpc-csharp --version %VERSION%
+      vstest.console /logger:Appveyor /inIsolation ZapC.CSharp.Generator.Tests\bin\Release\netcoreapp3.1\ZapC.CSharp.Generator.Tests.dll
+      cd %APPVEYOR_BUILD_FOLDER%\zapc-csharp
+      dotnet tool install --global --add-source ./nupkg zapc-csharp --version %VERSION%
       cd %APPVEYOR_BUILD_FOLDER%\install-test
       compile-test
       cd %APPVEYOR_BUILD_FOLDER%
-      vstest.console /logger:Appveyor /inIsolation CapnpC.CSharp.Generator.Tests\bin\Release\netcoreapp3.1\CapnpC.CSharp.Generator.Tests.dll
-      dotnet tool uninstall --global capnpc-csharp
+      vstest.console /logger:Appveyor /inIsolation ZapC.CSharp.Generator.Tests\bin\Release\netcoreapp3.1\ZapC.CSharp.Generator.Tests.dll
+      dotnet tool uninstall --global zapc-csharp
       cd %APPVEYOR_BUILD_FOLDER%\install-test
       notinstalled-test
       cd %APPVEYOR_BUILD_FOLDER%\chocolatey\install
-      choco install capnproto --source="https://chocolatey.org/api/v2" --force -y
-      choco install capnpc-csharp-win-x86 --source=".;https://chocolatey.org/api/v2" --force -y --version %VERSION% --pre
+      choco install zap --source="https://chocolatey.org/api/v2" --force -y
+      choco install zapc-csharp-win-x86 --source=".;https://chocolatey.org/api/v2" --force -y --version %VERSION% --pre
       cd %APPVEYOR_BUILD_FOLDER%\install-test
       compile-test
-      choco uninstall capnpc-csharp-win-x86 -y
+      choco uninstall zapc-csharp-win-x86 -y
       notinstalled-test
       cd %APPVEYOR_BUILD_FOLDER%
-      vstest.console /logger:Appveyor /inIsolation CapnpC.CSharp.MsBuild.Generation.Tests\bin\Release\netcoreapp3.1\CapnpC.CSharp.MsBuild.Generation.Tests.dll
+      vstest.console /logger:Appveyor /inIsolation ZapC.CSharp.MsBuild.Generation.Tests\bin\Release\netcoreapp3.1\ZapC.CSharp.MsBuild.Generation.Tests.dll
       msbuild -t:restore ./MsBuildGenerationTest/MsBuildGenerationTest.csproj /p:Configuration="Debug" /p:PackageReferenceVersion="%VERSION%"
       msbuild ./MsBuildGenerationTest/MsBuildGenerationTest.sln /p:Configuration="Debug" /p:PackageReferenceVersion="%VERSION%"
-      vstest.console /logger:Appveyor /inIsolation Capnp.Net.Runtime.Tests\bin\Debug\net471\Capnp.Net.Runtime.Tests.dll
-      vstest.console /logger:Appveyor /inIsolation Capnp.Net.Runtime.Tests\bin\Release\netcoreapp3.1\Capnp.Net.Runtime.Tests.dll
+      vstest.console /logger:Appveyor /inIsolation Zap.Net.Runtime.Tests\bin\Debug\net471\Zap.Net.Runtime.Tests.dll
+      vstest.console /logger:Appveyor /inIsolation Zap.Net.Runtime.Tests\bin\Release\netcoreapp3.1\Zap.Net.Runtime.Tests.dll
       powershell -File .\scripts\measure-coverage.ps1
       csmacnz.Coveralls --lcov -i "coverage\lcov.info" --repoToken %COVERALLS_REPO_TOKEN%
 on_finish :
