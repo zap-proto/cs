@@ -1,0 +1,109 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net471;netcoreapp2.1</TargetFrameworks>
+    <SignAssembly>false</SignAssembly>
+    
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
+
+    <NuspecFile>$(MSBuildThisFileDirectory)ZapC.CSharp.MsBuild.Generation.nuspec</NuspecFile>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageOutputPath>..\bin\$(Configuration)</PackageOutputPath>
+    <Configurations>Debug;Release</Configurations>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.Composition" />
+    <PackageReference Include="Microsoft.VisualStudio.ProjectSystem" />
+    <PackageReference Include="Microsoft.VisualStudio.ProjectSystem.SDK" />
+    <PackageReference Include="Microsoft.VisualStudio.ProjectSystem.SDK.Tools" />
+    <PackageReference Include="Microsoft.VisualStudio.Threading" />
+    <PackageReference Include="System.Collections.Immutable" />
+  </ItemGroup>
+
+  <ItemDefinitionGroup>
+    <PackageReference>
+      <PrivateAssets>All</PrivateAssets>
+    </PackageReference>
+  </ItemDefinitionGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Build.Framework" Version="15.8.166" />
+    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="15.8.166" />
+    <PackageReference Update="@(PackageReference)" PrivateAssets="All" />
+    <PackageReference Update="Microsoft.VisualStudio.Composition" Version="15.8.98" />
+    <PackageReference Update="Microsoft.VisualStudio.ProjectSystem" Version="15.8.243" />
+    <PackageReference Update="Microsoft.VisualStudio.ProjectSystem.SDK" Version="15.8.243" />
+    <PackageReference Update="Microsoft.VisualStudio.ProjectSystem.SDK.Tools" Version="15.8.243" />
+    <PackageReference Update="Microsoft.VisualStudio.Threading" Version="16.3.52" />
+    <PackageReference Update="Microsoft.Xaml" Version="4.0.0.1" />
+    <PackageReference Update="System.Collections.Immutable" Version="1.5.0" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="FrameworkDependent\**\*.cs" />
+    <Compile Include="FrameworkDependent\*.cs" />
+    <None Include="FrameworkDependent\**\*.cs" />
+    <Compile Include="FrameworkDependent\FullFramework\**\*.cs" Condition="'$(TargetFramework)' == '$(ZapcCsharp_FullFramework_Tools_TFM)'" />
+    <Compile Include="FrameworkDependent\DotNetCore\**\*.cs" Condition="'$(TargetFramework)' == '$(ZapcCsharp_Core_Tools_TFM)'" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="FrameworkDependent\DotNetCore\" />
+    <Folder Include="FrameworkDependent\FullFramework\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ZapC.CSharp.Generator\ZapC.CSharp.Generator.csproj">
+      <Private>true</Private>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Microsoft.Build">
+      <HintPath>Microsoft.Build</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Build.Framework">
+      <HintPath>Microsoft.Build.Framework</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Build.Utilities.Core">
+      <HintPath>Microsoft.Build.Utilities.Core</HintPath>
+    </Reference>
+    <Reference Include="System.ComponentModel.Composition" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="buildMultiTargeting\ZapC.CSharp.MsBuild.Generation.props">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="build\ZapC.CSharp.MsBuild.Generation.props">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="build\ZapC.CSharp.MsBuild.Generation.targets">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="build\ZapC.CSharp.MsBuild.Generation.tasks">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="build\CPS\Buildsystem\CpsExtension.DesignTime.targets">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="build\CPS\Buildsystem\Rules\ZapFileType.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="build\CPS\Buildsystem\Rules\ProjectItemsSchema.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <RemoveDir Directories="$(SolutionDir)\MsBuildGenerationTest\obj" />
+  </Target>
+
+</Project>

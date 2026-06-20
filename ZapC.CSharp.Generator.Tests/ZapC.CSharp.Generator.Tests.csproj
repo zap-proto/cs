@@ -1,0 +1,54 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <RootNamespace>ZapC.CSharp.Generator.Tests</RootNamespace>
+
+    <IsPackable>false</IsPackable>
+
+    <Configurations>Debug;Release</Configurations>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="1.2.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="3.4.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="3.4.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.2.0" />
+    <PackageReference Include="Mono.Cecil" Version="0.11.0" />
+    <PackageReference Include="MSTest.TestAdapter" Version="1.4.0" />
+    <PackageReference Include="MSTest.TestFramework" Version="1.4.0" />
+    <PackageReference Include="SpecFlow" Version="3.1.78" />
+    <PackageReference Include="SpecFlow.MsTest" Version="3.1.78" />
+    <PackageReference Include="SpecFlow.Tools.MsBuild.Generation" Version="3.1.78" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Embedded Resources\*.cs" />
+    <Compile Remove="CodeGenerator.feature.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Embedded Resources\*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="No Resources\UnitTest1.zap" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ZapC.CSharp.Generator\ZapC.CSharp.Generator.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <SpecFlowFeatureFiles Update="CodeGenerator.feature">
+      <Generator>SpecFlowSingleFileGenerator</Generator>
+      <LastGenOutput>CodeGenerator.feature.cs</LastGenOutput>
+      <Generator Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'"></Generator>
+      <Generator Condition="'$(Configuration)|$(Platform)'=='ReleaseTest|AnyCPU'"></Generator>
+    </SpecFlowFeatureFiles>
+  </ItemGroup>
+  
+</Project>

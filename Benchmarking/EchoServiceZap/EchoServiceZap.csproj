@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Zap.Net.Runtime" Version="1.3.97-g4f0abaac73" />
+    <PackageReference Include="ZapC.CSharp.MsBuild.Generation" Version="1.3.97-g4f0abaac73" />
+  </ItemGroup>
+
+</Project>

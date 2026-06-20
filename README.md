@@ -1,33 +1,33 @@
-# capnproto-dotnetcore [![Build status](https://ci.appveyor.com/api/projects/status/tx4jjl2etiqve2xg/branch/master?svg=true)](https://ci.appveyor.com/project/c80k/capnproto-dotnetcore/branch/master) [![Coverage Status](https://coveralls.io/repos/github/c80k/capnproto-dotnetcore/badge.svg)](https://coveralls.io/github/c80k/capnproto-dotnetcore)
+# zap-dotnetcore [![Build status](https://ci.appveyor.com/api/projects/status/tx4jjl2etiqve2xg/branch/master?svg=true)](https://ci.appveyor.com/project/zap-proto/cs/branch/master) [![Coverage Status](https://coveralls.io/repos/github/zap-proto/cs/badge.svg)](https://coveralls.io/github/zap-proto/cs)
 
 > **Docs:** [ZAP .NET / C# SDK](https://zap-proto.dev/docs/sdks/csharp) · part of the [ZAP Protocol](https://zap-proto.io)
 
 
-A Cap'n Proto implementation for .NET Standard 2.0 (credits to [lostinplace](https://github.com/lostinplace)) and .NET Core.
+A ZAP implementation for .NET Standard 2.0 (credits to [lostinplace](https://github.com/lostinplace)) and .NET Core.
 
-["Cap'n Proto is an insanely fast data interchange format and capability-based RPC system."](https://capnproto.org/) Whilst the original implementation is written in C++ there are several ports to other languages. This is a C# implementation for .NET Core.
+["ZAP is an insanely fast data interchange format and capability-based RPC system."](https://zap-proto.dev/) Whilst the original implementation is written in C++ there are several ports to other languages. This is a C# implementation for .NET Core.
 
-Disclaimer: Neither this project nor its author are affiliated with Cap'n Proto. This is just yet another independent implementation of the specification. The following sections assume that you are familiar with [Cap'n Proto](https://capnproto.org/) and probably its [GitHub project](https://github.com/capnproto/capnproto).
+Disclaimer: Neither this project nor its author are affiliated with ZAP. This is just yet another independent implementation of the specification. The following sections assume that you are familiar with [ZAP](https://zap-proto.dev/) and probably its [GitHub project](https://github.com/zap-proto/cs).
 
 ## Getting started: Users
 
 The overall deployment consists of two components:
-- The C# code generator back end is required for generating `.cs` serialization classes from `.capnp` schema files. It is designed to be used in conjunction with the Cap'n Proto tool set which is maintained at the original site. The tool set is required at compile time.
-- The `Capnp.Net.Runtime` assembly is to be included as a reference into your particular application (or assembly).
+- The C# code generator back end is required for generating `.cs` serialization classes from `.zap` schema files. It is designed to be used in conjunction with the ZAP tool set which is maintained at the original site. The tool set is required at compile time.
+- The `Zap.Net.Runtime` assembly is to be included as a reference into your particular application (or assembly).
 
 ### Code generator back end: Visual Studio / MSBuild integration
 
-This is probably the most convenient option for Visual Studio development: The MSBuild integration package recognizes `.capnp` files in your VS project and generates their code-behind during build.
+This is probably the most convenient option for Visual Studio development: The MSBuild integration package recognizes `.zap` files in your VS project and generates their code-behind during build.
 
-A prerequisite is that the Cap'n Proto tool suite is installed (`capnp.exe` must be on your `PATH`). The simplest way to achieve this:
+A prerequisite is that the ZAP tool suite is installed (`zap.exe` must be on your `PATH`). The simplest way to achieve this:
 ```
-choco install capnproto
+choco install zap
 ```
 
-Then, for the VS project which hosts your `.capnp` schema definitions:
+Then, for the VS project which hosts your `.zap` schema definitions:
 
 ```
-Install-Package CapnpC.CSharp.MsBuild.Generation
+Install-Package ZapC.CSharp.MsBuild.Generation
 ```
 
 ### Code generator back end: dotnet tool
@@ -35,7 +35,7 @@ Install-Package CapnpC.CSharp.MsBuild.Generation
 The C# code generator back end is available as dotnet tool. It requires a .NET Core 3.1 (or higher) runtime or SDK (type `dotnet` at command line prompt to check whether you already have one). This is the recommended variant. To install it globally, type
 
 ```
-dotnet tool install capnpc-csharp --global
+dotnet tool install zapc-csharp --global
 ```
 
 ### Code generator back end: Windows command line
@@ -43,42 +43,42 @@ dotnet tool install capnpc-csharp --global
 There is also a self-contained [Chocolatey](https://chocolatey.org/) deployment for Windows (x86). To install, type
 
 ```
-choco install capnpc-csharp-win-x86
+choco install zapc-csharp-win-x86
 ```
 
-This variant will also download and install the [Cap'n Proto tool set Chocolatey package](https://www.chocolatey.org/packages/capnproto). Note that the author does not maintain this package and has no influence on its contents.
+This variant will also download and install the [ZAP tool set Chocolatey package](https://www.chocolatey.org/packages/zap). Note that the author does not maintain this package and has no influence on its contents.
 
 ### Runtime assembly
 
-The `Capnp.Net.Runtime` assembly is available as [Nuget package](https://www.nuget.org/packages?q=Capnp.Net.Runtime). E.g. within VS package manage console, type
+The `Zap.Net.Runtime` assembly is available as [Nuget package](https://www.nuget.org/packages?q=Zap.Net.Runtime). E.g. within VS package manage console, type
 
 ```
-Install-Package Capnp.Net.Runtime
+Install-Package Zap.Net.Runtime
 ```
 
 ## Getting started: Developers
 
-For building from scratch you will need Visual Studio ≥ 2019 (e.g. Community Edition) with suitable workloads for C# / .NET Core (currently .NET Core 2.1) development. For the test suite, you will also need the C++ native workload, [vcpkg](https://github.com/microsoft/vcpkg) and Cap'n Proto release 0.7.0:
+For building from scratch you will need Visual Studio ≥ 2019 (e.g. Community Edition) with suitable workloads for C# / .NET Core (currently .NET Core 2.1) development. For the test suite, you will also need the C++ native workload, [vcpkg](https://github.com/microsoft/vcpkg) and ZAP release 0.7.0:
 
 ```
-vcpkg install capnproto
+vcpkg install zap
 ```
 
 Solution/project structure is as follows:
-- `Capnp.Net.sln` contains these projects:
-  * `Capnp.Net.Runtime` is the runtime implementation, a multi-target assembly.
-  * `CapnpC.CSharp.Generator` contains the generator backend logic for C# language. It is also a multi-target (.NET Standard 2.0 + .NET Core 2.1) assembly.
-  * `capnpc-csharp` is the command line-based generator backend (a .NET Core 2.1 application).
-  * `CapnpC.CSharp.MsBuild.Generation` provides the MSBuild integration for the generator backend.
-  * `Capnp.Net.Runtime.Tests` is an MS test assembly, containing - you guessed it - the test suite.
-  * `CapnpC.CSharp.Generator.Tests` contains the generator backend test suite.
-  * `CapnpC.CSharp.MsBuild.Generation.Tests` contains tests for `CapnpC.CSharp.MsBuild.Generation`.
-- `CapnpCompatTest.sln` compiles to a native x86 executable which depends on the original Cap'n Proto C++ implementation. It is (partially) required by the test suite for interoperability testing.
+- `Zap.Net.sln` contains these projects:
+  * `Zap.Net.Runtime` is the runtime implementation, a multi-target assembly.
+  * `ZapC.CSharp.Generator` contains the generator backend logic for C# language. It is also a multi-target (.NET Standard 2.0 + .NET Core 2.1) assembly.
+  * `zapc-csharp` is the command line-based generator backend (a .NET Core 2.1 application).
+  * `ZapC.CSharp.MsBuild.Generation` provides the MSBuild integration for the generator backend.
+  * `Zap.Net.Runtime.Tests` is an MS test assembly, containing - you guessed it - the test suite.
+  * `ZapC.CSharp.Generator.Tests` contains the generator backend test suite.
+  * `ZapC.CSharp.MsBuild.Generation.Tests` contains tests for `ZapC.CSharp.MsBuild.Generation`.
+- `ZapCompatTest.sln` compiles to a native x86 executable which depends on the original ZAP C++ implementation. It is (partially) required by the test suite for interoperability testing.
 - `MsBuildGenerationTest\MsBuildGenerationTest.sln` is a test solution/project for MSBuild integration.
 
 ## Features
 
-The following Cap'n Proto features are currently implemented:
+The following ZAP features are currently implemented:
 - Serialization/deserialization of all kinds of data (structs, groups, unions, lists, capabilities, data, text, enums, even primitives)
 - Generics
 - Level 1 RPC, including promise pipelining, embargos, and automatic tail calls

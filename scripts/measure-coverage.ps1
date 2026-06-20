@@ -4,8 +4,8 @@ $resultsDir = "$rootDir\TestResults"
 $coverageFile = "$resultsDir\*\*.xml"
 $testResultsDir = "$rootDir\TestResults"
 $coverageReportDir = "$rootDir\coverage"
-$generatorTests = "$rootDir\CapnpC.CSharp.Generator.Tests\CapnpC.CSharp.Generator.Tests.csproj"
-$runtimeTests = "$rootDir\Capnp.Net.Runtime.Tests\Capnp.Net.Runtime.Tests.csproj"
+$generatorTests = "$rootDir\ZapC.CSharp.Generator.Tests\ZapC.CSharp.Generator.Tests.csproj"
+$runtimeTests = "$rootDir\Zap.Net.Runtime.Tests\Zap.Net.Runtime.Tests.csproj"
 
 If(test-path $testResultsDir) {
   Remove-Item -Recurse -Force $testResultsDir

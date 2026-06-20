@@ -10,67 +10,67 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <CapnpCsharpObsoleteCodeBehindFiles Remove="capnp\bergm.capnp.cs" />
+    <ZapCsharpObsoleteCodeBehindFiles Remove="zap\bergm.zap.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Remove="capnp\bergm.capnp.bin" />
+    <None Remove="zap\bergm.zap.bin" />
   </ItemGroup>
 
   <ItemGroup>
-    <CapnpFiles Include="Issue25.capnp" />
+    <ZapFiles Include="Issue25.zap" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Capnp.Net.Runtime" Version="$(PackageReferenceVersion)" />
-    <PackageReference Include="CapnpC.CSharp.MsBuild.Generation" Version="$(PackageReferenceVersion)" />
+    <PackageReference Include="Zap.Net.Runtime" Version="$(PackageReferenceVersion)" />
+    <PackageReference Include="ZapC.CSharp.MsBuild.Generation" Version="$(PackageReferenceVersion)" />
   </ItemGroup>
 
   <ItemGroup>
-    <CapnpFiles Update="capnp\c++.capnp">
+    <ZapFiles Update="zap\c++.zap">
       <WorkingDirectory>$(ProjectDir)</WorkingDirectory>
       <Verbose Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">true</Verbose>
-    </CapnpFiles>
-    <CapnpFiles Update="capnp\compat\json-test.capnp">
+    </ZapFiles>
+    <ZapFiles Update="zap\compat\json-test.zap">
       <WorkingDirectory>$(ProjectDir)</WorkingDirectory>
       <ImportPaths>$(ProjectDir);%(ImportPaths)</ImportPaths>
-    </CapnpFiles>
-    <CapnpFiles Update="capnp\compat\json.capnp">
+    </ZapFiles>
+    <ZapFiles Update="zap\compat\json.zap">
       <WorkingDirectory>$(ProjectDir)</WorkingDirectory>
       <ImportPaths>$(ProjectDir);%(ImportPaths)</ImportPaths>
-    </CapnpFiles>
-    <CapnpFiles Update="capnp\persistent.capnp">
+    </ZapFiles>
+    <ZapFiles Update="zap\persistent.zap">
       <ImportPaths>$(ProjectDir);%(ImportPaths)</ImportPaths>
-    </CapnpFiles>
-    <CapnpFiles Update="capnp\rpc-twoparty.capnp">
+    </ZapFiles>
+    <ZapFiles Update="zap\rpc-twoparty.zap">
       <WorkingDirectory>$(ProjectDir)</WorkingDirectory>
       <ImportPaths>$(ProjectDir);%(ImportPaths)</ImportPaths>
-    </CapnpFiles>
-    <CapnpFiles Update="capnp\rpc.capnp">
+    </ZapFiles>
+    <ZapFiles Update="zap\rpc.zap">
       <WorkingDirectory>$(ProjectDir)</WorkingDirectory>
       <ImportPaths>$(ProjectDir);%(ImportPaths)</ImportPaths>
-    </CapnpFiles>
-    <CapnpFiles Update="capnp\schema.capnp">
+    </ZapFiles>
+    <ZapFiles Update="zap\schema.zap">
       <WorkingDirectory>$(ProjectDir)</WorkingDirectory>
       <ImportPaths>$(ProjectDir);%(ImportPaths)</ImportPaths>
-    </CapnpFiles>
-    <CapnpFiles Update="capnp\test-import.capnp">
+    </ZapFiles>
+    <ZapFiles Update="zap\test-import.zap">
       <WorkingDirectory>$(ProjectDir)</WorkingDirectory>
       <ImportPaths>$(ProjectDir);%(ImportPaths)</ImportPaths>
-    </CapnpFiles>
-    <CapnpFiles Update="capnp\test-import2.capnp">
+    </ZapFiles>
+    <ZapFiles Update="zap\test-import2.zap">
       <WorkingDirectory>$(ProjectDir)</WorkingDirectory>
       <ImportPaths>$(ProjectDir);%(ImportPaths)</ImportPaths>
-    </CapnpFiles>
-    <CapnpFiles Update="capnp\test.capnp">
+    </ZapFiles>
+    <ZapFiles Update="zap\test.zap">
       <WorkingDirectory>$(ProjectDir)</WorkingDirectory>
       <ImportPaths>$(ProjectDir);%(ImportPaths)</ImportPaths>
-    </CapnpFiles>
+    </ZapFiles>
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="issue19.capnp.cs">
-      <DependentUpon>Issue19.capnp</DependentUpon>
+    <Compile Update="issue19.zap.cs">
+      <DependentUpon>Issue19.zap</DependentUpon>
     </Compile>
   </ItemGroup>
 

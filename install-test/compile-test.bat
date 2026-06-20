@@ -1,8 +1,8 @@
 @echo off
-capnp compile -ocsharp -I%cd% .\capnp\schema.capnp
+zap compile -ocsharp -I%cd% .\zap\schema.zap
 if %ERRORLEVEL% neq 0 exit /b 1
-if exist .\capnp\schema.capnp.cs (    
-  del .\capnp\schema.capnp.cs
+if exist .\zap\schema.zap.cs (    
+  del .\zap\schema.zap.cs
 ) else (
   exit /b 2
 )

@@ -1,0 +1,3 @@
+﻿<Project>
+  <UsingTask TaskName="ZapC.CSharp.MsBuild.Generation.GenerateZapFileCodeBehindTask" AssemblyFile="$(_ZapcCsharp_TaskAssembly)" />
+</Project>

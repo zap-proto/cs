@@ -333,8 +333,8 @@ ASALocalRun/
 .vscode/tasks.json
 .vscode/launch.json
 
-# Capnp code behind
-*.capnp.cs
+# Zap code behind
+*.zap.cs
 /globalPackages
 
 # Coverage results folder

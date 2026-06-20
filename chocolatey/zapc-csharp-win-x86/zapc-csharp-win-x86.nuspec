@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>zapc-csharp-win-x86</id>
+    <version>$version$</version>
+    <packageSourceUrl>https://github.com/zap-proto/cs/tree/master/chocolatey</packageSourceUrl>
+    <authors>Christian Köllner and contributors</authors>
+    <owners>Christian Köllner</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <!--<license type="expression">MIT</license>-->
+    <licenseUrl>https://github.com/zap-proto/cs/blob/master/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/zap-proto/cs</projectUrl>
+    <title>zapc-csharp (Install)</title>
+    <description>ZAP C# code generator backend, self-contained Windows x86</description>
+    <copyright>Christian Köllner and contributors</copyright>
+    <projectSourceUrl>https://github.com/zap-proto/cs</projectSourceUrl>
+    <docsUrl>https://github.com/zap-proto/cs/wiki</docsUrl>
+    <bugTrackerUrl>https://github.com/zap-proto/cs/issues</bugTrackerUrl>
+    <tags>zap zapc RPC serialization cerealization</tags>
+    <summary>ZAP C# code generator backend. This is the self-contained variant. It requires Windows x86/x64 
+    (as opposed to the zapc-csharp package, which is CPU-independent but requires a .NET Core runtime)</summary>
+    <!--<repository type="Git" />-->
+    <releaseNotes>https://github.com/zap-proto/cs/releases/tag/v$version$</releaseNotes>
+    <dependencies>
+        <dependency id="zap" version="0.7.0" />
+    </dependencies>
+  </metadata>
+<files>
+    <file src="chocolateyinstall.ps1" target="tools" />
+    <file src="chocolateyuninstall.ps1" target="tools" />
+    <file src="..\LICENSE.txt" target="tools" />
+    <file src="..\VERIFICATION.txt" target="tools" />
+    <file src=".\bin\**" target="bin" />
+  </files>
+</package>

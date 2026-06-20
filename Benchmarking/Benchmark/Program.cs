@@ -1,5 +1,5 @@
 ﻿using BenchmarkDotNet.Running;
-using Capnp.Rpc;
+using Zap.Rpc;
 using Grpc.Net.Client;
 using System;
 using System.Diagnostics;
@@ -14,8 +14,8 @@ namespace Benchmark
             if (args.Length == 0 || args[0] == "grpc")
                 BenchmarkRunner.Run<GrpcBenchmark>();
 
-            if (args.Length == 0 || args[0] == "capnp")
-                BenchmarkRunner.Run<CapnpBenchmark>();
+            if (args.Length == 0 || args[0] == "zap")
+                BenchmarkRunner.Run<ZapBenchmark>();
         }
     }
 }
