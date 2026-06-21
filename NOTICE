@@ -1,0 +1,14 @@
+cs — part of the ZAP Protocol (github.com/zap-proto)
+
+This product includes software developed by the capnproto-dotnetcore project:
+  capnproto-dotnetcore — https://github.com/c80k/capnproto-dotnetcore
+  Copyright (c) 2019 c80k and contributors
+  (initial .NET work credited to lostinplace)
+  Licensed under the MIT License (see LICENSE).
+
+This product also bundles SpecFlow, licensed under the New BSD License
+(see Licenses/SpecFlow-LICENSE-NewBSD.txt).
+
+ZAP is a derivative work: a brand-neutral fork of capnproto-dotnetcore providing
+a ZAP implementation for .NET Standard 2.0 and .NET Core.
+Modifications Copyright (c) 2025 Lux Industries Inc.
