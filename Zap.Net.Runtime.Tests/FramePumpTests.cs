@@ -11,6 +11,7 @@ namespace Zap.Net.Runtime.Tests
 {
     [TestClass]
     [TestCategory("Coverage")]
+    [TestCategory("Integration")] // Drives anonymous OS pipes + an RX thread; excluded from the default unit CI run.
     public class FramePumpTests
     {
         class MyStruct : SerializerState

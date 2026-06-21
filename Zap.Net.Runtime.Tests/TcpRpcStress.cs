@@ -14,6 +14,7 @@ using System.Threading;
 namespace Zap.Net.Runtime.Tests
 {
     [TestClass]
+    [TestCategory("Integration")] // 5000x loopback TCP connect/teardown stress loop; excluded from the default unit CI run.
     public class TcpRpcStress: TestBase
     {
         void Repeat(int count, Action action)
