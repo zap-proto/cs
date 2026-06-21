@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build & test (managed, net8.0)
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: 1
+      DOTNET_NOLOGO: 1
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Nerdbank.GitVersioning (Directory.Build.props) computes the version
+          # from full git history; a shallow clone breaks the build.
+          fetch-depth: 0
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # The library projects multi-target netstandard2.0/2.1 + netcoreapp2.1/3.1;
+      # those build with the SDK's reference packs on Linux. The net471 and the
+      # SpecFlow-based generator tests are Windows/full-framework only (see
+      # appveyor.yml) and are not part of the managed CI surface.
+      - name: Build runtime + generator + compiler (cross-platform libraries)
+        run: |
+          dotnet build Zap.Net.Runtime/Zap.Net.Runtime.csproj -c Release
+          dotnet build ZapC.CSharp.Generator/ZapC.CSharp.Generator.csproj -c Release
+          dotnet build zapc-csharp/zapc-csharp.csproj -c Release
+          dotnet build ZapC.CSharp.MsBuild.Generation/ZapC.CSharp.MsBuild.Generation.csproj \
+            -c Release -f netcoreapp2.1
+
+      - name: Build runtime tests (net8.0)
+        run: dotnet build Zap.Net.Runtime.Tests/Zap.Net.Runtime.Tests.csproj -c Release -f net8.0
+
+      # The Integration category covers loopback-TCP RPC, anonymous-pipe frame
+      # pump, and the native ZapCompatTest.exe interop (Windows + zap toolchain
+      # only). The default run is the deterministic managed unit suite.
+      - name: Test runtime (net8.0, unit suite)
+        run: >-
+          dotnet test Zap.Net.Runtime.Tests/Zap.Net.Runtime.Tests.csproj
+          -c Release -f net8.0 --no-build
+          --filter 'TestCategory!=Integration'
+          --logger 'console;verbosity=normal'
+          --logger 'trx;LogFileName=test-results.trx'
+          --results-directory ${{ github.workspace }}/test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ${{ github.workspace }}/test-results/*.trx
+          if-no-files-found: ignore

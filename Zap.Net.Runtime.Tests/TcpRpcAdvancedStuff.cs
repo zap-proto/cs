@@ -12,6 +12,7 @@ namespace Zap.Net.Runtime.Tests
 {
     [TestClass]
     [TestCategory("Coverage")]
+    [TestCategory("Integration")] // Binds loopback TCP client/server pairs; excluded from the default unit CI run.
     public class TcpRpcAdvancedStuff : TestBase
     {
         [TestMethod]

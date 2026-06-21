@@ -18,8 +18,26 @@ using System.Threading.Tasks;
 namespace Zap.Net.Runtime.Tests
 {
     [TestClass]
+    // Spawns the native ZapCompatTest.exe helper and manages it via Windows
+    // kernel32 Job Objects (see Util/JobUtil.cs), so it is structurally
+    // Windows-only and requires the native `zap` toolchain on PATH. Tagged
+    // Integration (excluded from the default unit CI run) and additionally
+    // skipped at runtime on non-Windows platforms by AssemblyInit below.
+    [TestCategory("Integration")]
     public class TcpRpcInterop: TestBase
     {
+        [ClassInitialize]
+        public static void ClassInitialize(TestContext context)
+        {
+            if (!System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+                    System.Runtime.InteropServices.OSPlatform.Windows))
+            {
+                Assert.Inconclusive(
+                    "TcpRpcInterop requires the native ZapCompatTest.exe helper and Windows " +
+                    "Job Objects; it only runs on Windows with the zap toolchain installed.");
+            }
+        }
+
         Process StartProcess(ProcessStartInfo processStartInfo)
         {
             try
